@@ -3,10 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="FreshTrack — track food expiry dates and rescue items before they rot. Kiroween 2026 Costume Contest entry.">
+  <meta name="theme-color" content="#0d0a14">
   <title>FreshTrack — Save them before they rot</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎃</text></svg>">
+  <link rel="preload" href="fonts/creepster.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <a class="skip-link" href="#pantry">Skip to pantry</a>
+  <div id="sr-announcer" class="sr-only" aria-live="polite"></div>
   <div id="app"></div>
   <script src="recipes.js" defer></script>
   <script src="app.js" defer></script>
