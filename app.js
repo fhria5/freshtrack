@@ -15,7 +15,10 @@
   var modalState = null;
   var historyLog = [];              // Impact Dashboard event log
   var capturedMonsters = { fresh: false, wary: false, danger: false, rotten: false };
+  var monsterCounts = { fresh: 0, wary: 0, danger: 0, rotten: 0 }; // rescues per level (drives monster level)
+  var streakState = { count: 0, lastDate: null }; // consecutive rescue days
   var soundsEnabled = false;        // Spooky Sounds toggle (default OFF)
+  var nightPref = 'auto';           // Night Mode: 'auto' | 'on' | 'off'
   var audioCtx = null;              // lazily-created Web Audio context
   var navObserver = null;           // IntersectionObserver for bottom-nav active state
 
@@ -25,6 +28,13 @@
   var HISTORY_KEY = 'freshtrack.history';
   var CODEX_KEY = 'freshtrack.codex';
   var SOUNDS_KEY = 'freshtrack.sounds';
+  var STREAK_KEY = 'freshtrack.streak';
+  var NIGHT_KEY = 'freshtrack.nightmode';
+  var MAX_LEVEL = 5;                // monster level cap
+  var RESCUES_PER_LEVEL = 3;        // rescues needed per level-up
+  var MAX_PHOTOS = 20;              // cap stored item photos (localStorage budget)
+  var PHOTO_MAX_DIM = 480;          // photo downscale target (px, longest side)
+  var PHOTO_JPEG_QUALITY = 0.72;
   var CATEGORIES = ['produce', 'dairy', 'meat', 'pantry', 'bakery', 'other'];
 
   // Estimated average weight (kg) of a single food item per category.
@@ -70,6 +80,15 @@
     var m = String(now.getMonth() + 1).padStart(2, '0');
     var d = String(now.getDate()).padStart(2, '0');
     return y + '-' + m + '-' + d;
+  }
+
+  function getYesterdayStr() {
+    var d = new Date();
+    d.setDate(d.getDate() - 1);
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
   }
 
   function generateId() {
@@ -205,17 +224,34 @@
 
   // ===== Monster Codex Persistence =====
 
+  // Stored shape: { fresh: { captured: bool, count: n }, ... }.
+  // Migrates the old boolean-only shape ({ fresh: true, ... }) automatically.
   function loadCodex() {
-    var fresh = { fresh: false, wary: false, danger: false, rotten: false };
+    var fresh = {
+      fresh: { captured: false, count: 0 },
+      wary: { captured: false, count: 0 },
+      danger: { captured: false, count: 0 },
+      rotten: { captured: false, count: 0 }
+    };
     try {
       var raw = localStorage.getItem(CODEX_KEY);
       if (!raw) return fresh;
       var parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object') return fresh;
-      fresh.fresh = !!parsed.fresh;
-      fresh.wary = !!parsed.wary;
-      fresh.danger = !!parsed.danger;
-      fresh.rotten = !!parsed.rotten;
+      var levels = ['fresh', 'wary', 'danger', 'rotten'];
+      for (var i = 0; i < levels.length; i++) {
+        var lv = levels[i];
+        var entry = parsed[lv];
+        if (typeof entry === 'boolean') {
+          // Old shape: plain true/false.
+          fresh[lv] = { captured: entry, count: entry ? 1 : 0 };
+        } else if (entry && typeof entry === 'object') {
+          fresh[lv] = {
+            captured: !!entry.captured,
+            count: typeof entry.count === 'number' ? entry.count : (entry.captured ? 1 : 0)
+          };
+        }
+      }
       return fresh;
     } catch (e) {
       return fresh;
@@ -224,18 +260,108 @@
 
   function saveCodex() {
     try {
-      localStorage.setItem(CODEX_KEY, JSON.stringify(capturedMonsters));
+      var out = {};
+      var levels = ['fresh', 'wary', 'danger', 'rotten'];
+      for (var i = 0; i < levels.length; i++) {
+        var lv = levels[i];
+        out[lv] = { captured: capturedMonsters[lv], count: monsterCounts[lv] };
+      }
+      localStorage.setItem(CODEX_KEY, JSON.stringify(out));
     } catch (e) {
       /* silent — codex is non-critical */
     }
   }
 
-  // Marks a monster as captured when an item at its urgency level is rescued.
+  // Monster level: 1 + one level per 3 rescues at that urgency, capped at 5.
+  function getMonsterLevel(level) {
+    var count = monsterCounts[level] || 0;
+    return Math.min(MAX_LEVEL, 1 + Math.floor(count / RESCUES_PER_LEVEL));
+  }
+
+  // Progress (0..1) toward the next level-up.
+  function getLevelProgress(level) {
+    if (getMonsterLevel(level) >= MAX_LEVEL) return 1;
+    return ((monsterCounts[level] || 0) % RESCUES_PER_LEVEL) / RESCUES_PER_LEVEL;
+  }
+
+  // Marks a monster as captured when an item at its urgency level is rescued,
+  // and counts the rescue toward that monster's level.
   function captureMonster(level) {
-    if (capturedMonsters.hasOwnProperty(level) && !capturedMonsters[level]) {
+    if (capturedMonsters.hasOwnProperty(level)) {
+      monsterCounts[level] = (monsterCounts[level] || 0) + 1;
       capturedMonsters[level] = true;
       saveCodex();
     }
+  }
+
+  // ===== Rescue Streak Persistence =====
+
+  function loadStreak() {
+    try {
+      var raw = localStorage.getItem(STREAK_KEY);
+      if (!raw) return { count: 0, lastDate: null };
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return { count: 0, lastDate: null };
+      return { count: parsed.count || 0, lastDate: parsed.lastDate || null };
+    } catch (e) {
+      return { count: 0, lastDate: null };
+    }
+  }
+
+  function saveStreak() {
+    try {
+      localStorage.setItem(STREAK_KEY, JSON.stringify(streakState));
+    } catch (e) {
+      /* silent — streak is non-critical */
+    }
+  }
+
+  // Call on every rescue: same day = no change, yesterday = +1, gap = reset to 1.
+  function recordRescueDay() {
+    var today = getTodayStr();
+    if (streakState.lastDate === today) return;
+    if (streakState.lastDate === getYesterdayStr()) {
+      streakState.count++;
+    } else {
+      streakState.count = 1;
+    }
+    streakState.lastDate = today;
+    saveStreak();
+  }
+
+  // ===== Night Mode Persistence =====
+
+  function loadNightPref() {
+    try {
+      var raw = localStorage.getItem(NIGHT_KEY);
+      return (raw === 'on' || raw === 'off' || raw === 'auto') ? raw : 'auto';
+    } catch (e) {
+      return 'auto';
+    }
+  }
+
+  function saveNightPref() {
+    try {
+      localStorage.setItem(NIGHT_KEY, nightPref);
+    } catch (e) {
+      /* silent */
+    }
+  }
+
+  // Night hours: 18:00–06:00 local time.
+  function isNightNow() {
+    var h = new Date().getHours();
+    return h >= 18 || h < 6;
+  }
+
+  function nightActive() {
+    if (nightPref === 'on') return true;
+    if (nightPref === 'off') return false;
+    return isNightNow();
+  }
+
+  function applyNightMode() {
+    document.body.classList.toggle('night-mode', nightActive());
   }
 
   // ===== Spooky Sounds Persistence =====
@@ -371,12 +497,14 @@
       renderHeader() +
       renderControls() +
       renderForm() +
+      renderChallenge() +
       renderTodaysHorrors() +
       renderItemList() +
       renderImpactDashboard() +
       renderCodex() +
       renderFooter();
     lastRenderedDay = getTodayStr();
+    applyNightMode();
     // Sections are recreated on each render — re-observe them so the
     // bottom-nav active state keeps tracking the on-screen section.
     refreshNavTargets();
@@ -399,7 +527,7 @@
       var u = getUrgency(items[i]);
       if (u.level === 'danger' || u.level === 'rotten') inPeril++;
     }
-    return { total: total, inPeril: inPeril, soulsSaved: soulsSaved };
+    return { total: total, inPeril: inPeril, soulsSaved: soulsSaved, streak: streakState.count };
   }
 
   function renderStatsStrip(stats) {
@@ -416,6 +544,10 @@
         '<div class="stat stat-souls">' +
           '<span class="stat-value">' + stats.soulsSaved + '</span>' +
           '<span class="stat-label">Souls Saved</span>' +
+        '</div>' +
+        '<div class="stat stat-streak">' +
+          '<span class="stat-value">\uD83D\uDD25 ' + stats.streak + '</span>' +
+          '<span class="stat-label">Day Streak</span>' +
         '</div>' +
       '</div>';
   }
@@ -445,6 +577,12 @@
             '<input type="date" id="item-expiry" name="expiryDate" required aria-describedby="error-expiry">' +
             '<span class="error-msg" id="error-expiry" role="alert"></span>' +
           '</div>' +
+          '<div class="form-field">' +
+            '<label for="item-photo">Photo (optional)</label>' +
+            '<input type="file" id="item-photo" name="photo" accept="image/*" capture="environment">' +
+            '<span class="field-hint">Snap the item — the photo is shrunk before saving so it stays light.</span>' +
+            '<span class="photo-preview" id="photo-preview" hidden></span>' +
+          '</div>' +
           '<button type="submit" class="btn-submit">\uD83E\uDDDB Add to the Fridge</button>' +
         '</form>' +
         '<button type="button" class="btn-demo" data-action="summon-demo">\u{1F383} Summon Demo Pantry</button>' +
@@ -472,7 +610,9 @@
     var html = '' +
       '<article class="card" data-urgency="' + level + '" data-id="' + escapeHtml(item.id) + '">' +
         '<div class="card-row">' +
-          '<span class="monster" aria-hidden="true">' + monster + '</span>' +
+          (item.photo
+            ? '<img class="item-photo" src="' + item.photo + '" alt="Photo of ' + escapeHtml(item.name) + '" loading="lazy">'
+            : '<span class="monster" aria-hidden="true">' + monster + '</span>') +
           '<div class="card-info">' +
             '<h3 class="item-name">' + escapeHtml(item.name) + '</h3>' +
             '<div class="card-meta">' +
@@ -545,6 +685,7 @@
     return '' +
       '<div class="empty-state">' +
         '<span class="empty-icon" aria-hidden="true">\uD83D\uDC80</span>' +
+        '<span class="night-eyes" aria-hidden="true">\uD83D\uDC40</span>' +
         '<p class="empty-title">Your fridge is eerily empty...</p>' +
         '<p class="empty-subtitle">Add something before the void stares back.</p>' +
         '<button type="button" class="btn-demo" data-action="summon-demo">\u{1F383} Summon Demo Pantry</button>' +
@@ -582,6 +723,9 @@
     var soundsLabel = soundsEnabled ? '\uD83D\uDD0A Sounds: On' : '\uD83D\uDD0A Sounds: Off';
     var soundsState = soundsEnabled ? 'on' : 'off';
 
+    var nightLabel = nightPref === 'on' ? '\uD83C\uDF19 Night: On'
+      : nightPref === 'off' ? '\uD83C\uDF19 Night: Off' : '\uD83C\uDF19 Night: Auto';
+
     return '' +
       '<div class="controls-strip" role="toolbar" aria-label="App controls">' +
         '<button type="button" class="ctrl-btn ctrl-reminder' + (reminderDisabled ? ' disabled' : '') +
@@ -591,10 +735,43 @@
         '<button type="button" class="ctrl-btn ctrl-sounds" data-action="toggle-sounds" aria-pressed="' + soundsEnabled + '">' +
           soundsLabel +
         '</button>' +
+        '<button type="button" class="ctrl-btn ctrl-night" data-action="cycle-night" aria-pressed="' + nightActive() + '">' +
+          nightLabel +
+        '</button>' +
         '<button type="button" class="ctrl-btn ctrl-share" data-action="share-card">' +
           '\uD83D\uDCF8 Share Card' +
         '</button>' +
+        '<button type="button" class="ctrl-btn ctrl-weekly" data-action="share-weekly">' +
+          '\uD83D\uDCC5 Weekly Recap' +
+        '</button>' +
       '</div>';
+  }
+
+  // ===== Today's Challenge (rescue 1 item today) =====
+
+  function countRescuedToday() {
+    var today = getTodayStr();
+    var n = 0;
+    for (var i = 0; i < historyLog.length; i++) {
+      if (historyLog[i].type === 'rescued' && historyLog[i].date === today) n++;
+    }
+    return n;
+  }
+
+  function renderChallenge() {
+    var done = countRescuedToday();
+    var complete = done >= 1;
+    return '' +
+      '<section class="challenge-section" aria-label="Today\u2019s challenge">' +
+        '<span class="challenge-icon" aria-hidden="true">\uD83C\uDFAF</span>' +
+        '<div class="challenge-info">' +
+          '<h2 class="challenge-title">Today\u2019s Challenge</h2>' +
+          '<p class="challenge-text">Rescue 1 item before midnight.</p>' +
+        '</div>' +
+        '<span class="challenge-progress" role="status">' +
+          (complete ? '\u2714 Done!' : done + ' / 1') +
+        '</span>' +
+      '</section>';
   }
 
   // ===== Today's Horrors (expiring today or tomorrow) =====
@@ -730,15 +907,25 @@
       var monster = URGENCY_MONSTERS[level];
       var label = URGENCY_LABELS[level];
       var state = captured ? 'captured' : 'unknown';
+      var lvl = getMonsterLevel(level);
+      var progress = Math.round(getLevelProgress(level) * 100);
+      var count = monsterCounts[level] || 0;
       var badge = captured
         ? '<span class="codex-badge captured">\u2714 Captured</span>'
         : '<span class="codex-badge locked">\u2716 Not Yet Captured</span>';
+      // Higher-level monsters loom larger.
+      var monsterSize = (2 + (lvl - 1) * 0.15).toFixed(2);
       return '' +
         '<div class="codex-card" data-urgency="' + level + '" data-state="' + state + '">' +
-          '<span class="codex-monster" aria-hidden="true">' + monster + '</span>' +
+          '<span class="codex-monster" aria-hidden="true" style="font-size: ' + monsterSize + 'rem">' + monster + '</span>' +
           '<div class="codex-info">' +
-            '<h3 class="codex-name">' + label + '</h3>' +
+            '<h3 class="codex-name">' + label + ' <span class="level-badge">Lv. ' + lvl + '</span></h3>' +
             '<p class="codex-lore">' + escapeHtml(MONSTER_LORE[level]) + '</p>' +
+            '<div class="xp-bar" role="img" aria-label="' + label + ' monster level ' + lvl + ', ' + count + ' rescues">' +
+              '<div class="xp-fill" style="width: ' + progress + '%"></div>' +
+            '</div>' +
+            '<p class="xp-text">' + count + ' rescue' + (count === 1 ? '' : 's') +
+              (lvl >= MAX_LEVEL ? ' — max level!' : ' · ' + (RESCUES_PER_LEVEL - (count % RESCUES_PER_LEVEL)) + ' more to Lv. ' + (lvl + 1)) + '</p>' +
             badge +
           '</div>' +
         '</div>';
@@ -755,13 +942,14 @@
 
   // ===== Actions =====
 
-  function addItem(name, category, expiryDate) {
+  function addItem(name, category, expiryDate, photo) {
     var item = {
       id: generateId(),
       name: name.trim(),
       category: category,
       expiryDate: expiryDate
     };
+    if (photo) item.photo = photo;
     items.push(item);
     saveItems();
     // Spooky Sounds: creak when a danger item joins the fridge.
@@ -807,6 +995,7 @@
       return it.id !== id;
     });
     incrementSouls();
+    recordRescueDay();
     saveItems();
     playChime();   // Spooky Sounds: chime on rescue
     if (item) announce(item.name + ' rescued. One more soul saved.');
@@ -851,6 +1040,71 @@
     saveItems();
     announce('Demo pantry summoned: 4 items added.');
     render();
+  }
+
+  // ===== Item Photos (downscaled before saving) =====
+
+  // Shrinks a photo file to a small JPEG data URL so localStorage stays light.
+  // Calls back with the data URL, or null when the file cannot be processed.
+  function processPhoto(file, callback) {
+    if (!file || !file.type || file.type.indexOf('image/') !== 0) {
+      callback(null);
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, PHOTO_MAX_DIM / Math.max(img.width, img.height));
+        var w = Math.max(1, Math.round(img.width * scale));
+        var h = Math.max(1, Math.round(img.height * scale));
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        try {
+          callback(canvas.toDataURL('image/jpeg', PHOTO_JPEG_QUALITY));
+        } catch (e) {
+          callback(null);
+        }
+      };
+      img.onerror = function () { callback(null); };
+      img.src = reader.result;
+    };
+    reader.onerror = function () { callback(null); };
+    reader.readAsDataURL(file);
+  }
+
+  function countPhotos() {
+    var n = 0;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].photo) n++;
+    }
+    return n;
+  }
+
+  // Live thumbnail preview when the user picks a photo in the form.
+  function handlePhotoChange(e) {
+    var input = e.target;
+    if (!input || input.id !== 'item-photo') return;
+    var preview = document.getElementById('photo-preview');
+    if (!preview) return;
+    var file = input.files && input.files[0];
+    if (!file) {
+      preview.setAttribute('hidden', '');
+      preview.innerHTML = '';
+      return;
+    }
+    processPhoto(file, function (dataUrl) {
+      if (!dataUrl) {
+        preview.setAttribute('hidden', '');
+        preview.innerHTML = '';
+        return;
+      }
+      preview.innerHTML = '<img src="' + dataUrl + '" alt="Photo preview">';
+      preview.removeAttribute('hidden');
+    });
   }
 
   // ===== Modal =====
@@ -1004,7 +1258,20 @@
 
     if (!valid) return;
 
-    addItem(name, category, expiryDate);
+    var photoInput = form.elements['photo'];
+    var file = photoInput && photoInput.files && photoInput.files[0];
+    if (!file) {
+      addItem(name, category, expiryDate);
+      return;
+    }
+    if (countPhotos() >= MAX_PHOTOS) {
+      alert('FreshTrack: photo storage is full (' + MAX_PHOTOS + ' photos). The item was added without a photo.');
+      addItem(name, category, expiryDate);
+      return;
+    }
+    processPhoto(file, function (dataUrl) {
+      addItem(name, category, expiryDate, dataUrl);
+    });
   }
 
   // ===== Click Delegation =====
@@ -1066,6 +1333,18 @@
         if (ctx && ctx.state === 'suspended') { try { ctx.resume(); } catch (err) {} }
       }
       render();
+
+    } else if (action === 'cycle-night') {
+      e.preventDefault();
+      // Cycles Auto -> On -> Off -> Auto.
+      nightPref = nightPref === 'auto' ? 'on' : nightPref === 'on' ? 'off' : 'auto';
+      saveNightPref();
+      applyNightMode();
+      render();
+
+    } else if (action === 'share-weekly') {
+      e.preventDefault();
+      handleWeeklyShare();
 
     } else if (action === 'enable-reminders') {
       e.preventDefault();
@@ -1221,6 +1500,113 @@
     });
   }
 
+  // ===== Weekly Recap Card (last 7 days) =====
+
+  function countWeekEvents(type) {
+    var cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    var n = 0;
+    for (var i = 0; i < historyLog.length; i++) {
+      if (historyLog[i].type === type && historyLog[i].ts >= cutoff) n++;
+    }
+    return n;
+  }
+
+  function drawWeeklyCard(callback) {
+    var doDraw = function () {
+      var canvas = document.createElement('canvas');
+      canvas.width = 600;
+      canvas.height = 420;
+      var ctx = canvas.getContext('2d');
+
+      var bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      bg.addColorStop(0, '#1a1424');
+      bg.addColorStop(1, '#0d0a14');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = '#3a2d4f';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#d64545';
+      ctx.font = '48px Creepster, Impact, "Arial Black", sans-serif';
+      ctx.fillText('FreshTrack', canvas.width / 2, 72);
+
+      ctx.fillStyle = '#8a7fa0';
+      ctx.font = 'italic 18px sans-serif';
+      ctx.fillText('This week in the haunted fridge', canvas.width / 2, 104);
+
+      var stats = [
+        { value: String(countWeekEvents('rescued')), label: 'Souls Rescued' },
+        { value: String(countWeekEvents('wasted')), label: 'Lost to the Void' },
+        { value: String(streakState.count), label: 'Day Streak' }
+      ];
+      var colW = canvas.width / stats.length;
+      for (var i = 0; i < stats.length; i++) {
+        var cx = colW * i + colW / 2;
+        ctx.fillStyle = '#6abf69';
+        ctx.font = 'bold 52px sans-serif';
+        ctx.fillText(stats[i].value, cx, 210);
+        ctx.fillStyle = '#e8e0f0';
+        ctx.font = '18px sans-serif';
+        ctx.fillText(stats[i].label, cx, 242);
+      }
+
+      ctx.strokeStyle = '#3a2d4f';
+      ctx.beginPath();
+      ctx.moveTo(60, 290);
+      ctx.lineTo(canvas.width - 60, 290);
+      ctx.stroke();
+
+      ctx.fillStyle = '#e0a44a';
+      ctx.font = 'bold 22px sans-serif';
+      ctx.fillText('#KiroweenHackathon26', canvas.width / 2, 330);
+
+      ctx.fillStyle = '#8a7fa0';
+      ctx.font = '13px sans-serif';
+      ctx.fillText('Kiroween 2026 \u2014 Costume Contest', canvas.width / 2, 356);
+
+      if (canvas.toBlob) {
+        canvas.toBlob(callback, 'image/png');
+      } else {
+        callback(null, canvas.toDataURL('image/png'));
+      }
+    };
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(doDraw).catch(doDraw);
+    } else {
+      doDraw();
+    }
+  }
+
+  function handleWeeklyShare() {
+    drawWeeklyCard(function (blob, fallbackDataUrl) {
+      var caption = 'My FreshTrack week: ' + countWeekEvents('rescued') +
+        ' souls rescued, ' + streakState.count + '-day streak. #KiroweenHackathon26';
+
+      if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob], 'freshtrack-weekly.png', { type: 'image/png' })] })) {
+        var file = new File([blob], 'freshtrack-weekly.png', { type: 'image/png' });
+        navigator.share({
+          title: 'FreshTrack Weekly Recap',
+          text: caption,
+          files: [file]
+        }).catch(function () { /* user cancelled or unsupported */ });
+        return;
+      }
+
+      var url = blob ? URL.createObjectURL(blob) : fallbackDataUrl;
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'freshtrack-weekly.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      if (blob) { setTimeout(function () { URL.revokeObjectURL(url); }, 2000); }
+    });
+  }
+
   // ===== Bottom Navigation (mobile only) =====
 
   // Builds the fixed bottom nav once and appends it to <body> (outside #app,
@@ -1316,6 +1702,7 @@
   // ===== Countdown Refresh =====
 
   function checkDayChange() {
+    applyNightMode(); // auto night mode flips at 18:00 / 06:00
     var today = getTodayStr();
     if (today !== lastRenderedDay) {
       render();
@@ -1328,14 +1715,23 @@
     items = loadItems();
     soulsSaved = loadSoulsSaved();
     historyLog = loadHistory();
-    capturedMonsters = loadCodex();
+    var codex = loadCodex();
+    var levels = ['fresh', 'wary', 'danger', 'rotten'];
+    for (var i = 0; i < levels.length; i++) {
+      capturedMonsters[levels[i]] = codex[levels[i]].captured;
+      monsterCounts[levels[i]] = codex[levels[i]].count;
+    }
+    streakState = loadStreak();
     soundsEnabled = loadSoundsEnabled();
+    nightPref = loadNightPref();
+    applyNightMode();
     createBottomNav();
     render();
 
     var app = document.getElementById('app');
     app.addEventListener('submit', handleFormSubmit);
     app.addEventListener('click', handleClick);
+    app.addEventListener('change', handlePhotoChange);
 
     // Global keyboard handling for modal (Escape + focus trap)
     document.addEventListener('keydown', handleModalKeydown);
