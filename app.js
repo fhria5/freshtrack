@@ -104,6 +104,19 @@
     }
   }
 
+  // ===== Screen-reader announcements =====
+
+  // Writes a short message to the polite live region in index.html so
+  // screen-reader users hear what just happened (add / rescue / delete).
+  function announce(message) {
+    var el = document.getElementById('sr-announcer');
+    if (!el) return;
+    el.textContent = '';
+    // Clearing first, then setting on the next frame, guarantees the
+    // announcement fires even when the message repeats.
+    setTimeout(function () { el.textContent = message; }, 50);
+  }
+
   // ===== Persistence =====
 
   function loadItems() {
@@ -418,7 +431,7 @@
         '<form id="add-item-form" novalidate>' +
           '<div class="form-field">' +
             '<label for="item-name">Item Name</label>' +
-            '<input type="text" id="item-name" name="name" placeholder="e.g., Spinach" required autocomplete="off">' +
+            '<input type="text" id="item-name" name="name" placeholder="e.g., Spinach" required autocomplete="off" aria-describedby="error-name">' +
             '<span class="error-msg" id="error-name" role="alert"></span>' +
           '</div>' +
           '<div class="form-field">' +
@@ -429,7 +442,7 @@
           '</div>' +
           '<div class="form-field">' +
             '<label for="item-expiry">Expiry Date</label>' +
-            '<input type="date" id="item-expiry" name="expiryDate" required>' +
+            '<input type="date" id="item-expiry" name="expiryDate" required aria-describedby="error-expiry">' +
             '<span class="error-msg" id="error-expiry" role="alert"></span>' +
           '</div>' +
           '<button type="submit" class="btn-submit">\uD83E\uDDDB Add to the Fridge</button>' +
@@ -446,7 +459,7 @@
       return (a.expiryDate || '').localeCompare(b.expiryDate || '');
     });
     var cards = sorted.map(renderItemCard).join('');
-    return '<section id="pantry" aria-label="Pantry"><main class="item-list">' + cards + '</main></section>';
+    return '<section id="pantry" aria-label="Pantry"><div class="item-list">' + cards + '</div></section>';
   }
 
   function renderItemCard(item) {
@@ -464,7 +477,7 @@
             '<h3 class="item-name">' + escapeHtml(item.name) + '</h3>' +
             '<div class="card-meta">' +
               '<span class="category">' + escapeHtml(capitalize(item.category)) + '</span>' +
-              '<span class="badge badge-' + level + '" role="status">' + escapeHtml(daysText) + '</span>' +
+              '<span class="badge badge-' + level + '">' + escapeHtml(daysText) + '</span>' +
               '<span class="urgency-label urgency-' + level + '">' + label + '</span>' +
             '</div>' +
           '</div>' +
@@ -756,6 +769,7 @@
     if (u.level === 'danger') {
       playCreak();
     }
+    announce(item.name + ' added to the fridge. ' + getDaysText(u.daysRemaining) + '.');
     render();
   }
 
@@ -775,6 +789,7 @@
       return it.id !== id;
     });
     saveItems();
+    if (item) announce(item.name + ' banished to the void.');
     render();
   }
 
@@ -794,6 +809,7 @@
     incrementSouls();
     saveItems();
     playChime();   // Spooky Sounds: chime on rescue
+    if (item) announce(item.name + ' rescued. One more soul saved.');
     render();
   }
 
@@ -833,6 +849,7 @@
     }
 
     saveItems();
+    announce('Demo pantry summoned: 4 items added.');
     render();
   }
 
