@@ -15,9 +15,12 @@
   --accent-wary: #e0a44a;
   --accent-danger: #d64545;
   --accent-rotten: #8b1a1a;
+  --accent-rotten-text: #e06565;   /* readable text on dark bg (accent-rotten alone is too dark) */
   --text-primary: #e8e0f0;
   --text-muted: #8a7fa0;
   --border-spooky: #3a2d4f;
+
+  --tap-target: 44px;   /* minimum comfortable touch target (WCAG 2.5.8 / Apple HIG) */
 
   --font-heading: 'Creepster', Impact, 'Arial Black', 'Helvetica Neue', sans-serif;
   --font-body: -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -34,6 +37,46 @@
 
 [hidden] {
   display: none !important;
+}
+
+/* Visually hidden but available to screen readers. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link: hidden until keyboard-focused. */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 1rem;
+  z-index: 1100;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--accent-wary);
+  color: var(--bg-deep);
+  font-weight: 700;
+  border-radius: 0 0 8px 8px;
+  text-decoration: none;
+  transition: top 0.15s;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* No double-tap zoom delay on any interactive element. */
+button,
+input,
+select,
+a {
+  touch-action: manipulation;
 }
 
 body {
@@ -108,7 +151,7 @@ h1, h2, h3, h4 {
 }
 
 .stat-label {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-muted);
@@ -178,6 +221,7 @@ h1, h2, h3, h4 {
 .form-field input,
 .form-field select {
   width: 100%;
+  min-height: var(--tap-target);
   padding: 0.625rem 0.75rem;
   background-color: var(--bg-deep);
   border: 1px solid var(--border-spooky);
@@ -219,6 +263,7 @@ select option {
 
 .btn-submit {
   width: 100%;
+  min-height: var(--tap-target);
   padding: 0.75rem;
   background: linear-gradient(135deg, var(--accent-danger), var(--accent-rotten));
   color: #fff;
@@ -242,6 +287,7 @@ select option {
 
 .btn-demo {
   width: 100%;
+  min-height: var(--tap-target);
   padding: 0.625rem;
   margin-top: 0.75rem;
   background-color: transparent;
@@ -259,7 +305,6 @@ select option {
 .btn-demo:focus-visible {
   background-color: rgba(224, 164, 74, 0.1);
   border-style: solid;
-  outline: none;
 }
 
 /* ===== Item List ===== */
@@ -277,6 +322,9 @@ select option {
   border-radius: 10px;
   padding: 1rem 1.25rem;
   transition: border-color 0.3s, box-shadow 0.3s;
+  /* Skip rendering off-screen cards until they scroll into view. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 140px;
 }
 
 .card[data-urgency="fresh"] {
@@ -295,14 +343,17 @@ select option {
 .card[data-urgency="danger"] {
   border-left-color: var(--accent-danger);
   box-shadow: 0 0 15px rgba(214, 69, 69, 0.25);
-  animation: shake 0.5s ease-in-out infinite;
+  /* Shake only 3 times on mount: an infinite shake keeps the card (and its
+     buttons) moving forever, so taps feel unstable and the buttons never
+     settle for keyboard/automated use. */
+  animation: shake 0.5s ease-in-out 3;
 }
 
 .card[data-urgency="rotten"] {
   border-left-color: var(--accent-rotten);
   background-color: rgba(139, 26, 26, 0.08);
   box-shadow: 0 0 20px rgba(139, 26, 26, 0.3);
-  animation: shake 0.35s ease-in-out infinite, pulse 1.5s ease-in-out infinite;
+  animation: shake 0.35s ease-in-out 3, pulse 1.5s ease-in-out infinite;
 }
 
 .card-row {
@@ -389,21 +440,23 @@ select option {
 .urgency-fresh { color: var(--accent-fresh); }
 .urgency-wary { color: var(--accent-wary); }
 .urgency-danger { color: var(--accent-danger); }
-.urgency-rotten { color: var(--accent-rotten); }
+.urgency-rotten { color: var(--accent-rotten-text); }
 
 /* ===== Card Actions ===== */
 .card-actions {
   display: flex;
   flex-shrink: 0;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 .btn-rescue {
   background: transparent;
   border: 1px solid var(--accent-fresh);
   color: var(--accent-fresh);
-  width: 32px;
-  height: 32px;
+  min-width: var(--tap-target);
+  min-height: var(--tap-target);
+  width: var(--tap-target);
+  height: var(--tap-target);
   border-radius: 6px;
   cursor: pointer;
   font-size: 1rem;
@@ -418,7 +471,6 @@ select option {
 .btn-rescue:focus-visible {
   background-color: var(--accent-fresh);
   color: var(--bg-deep);
-  outline: none;
 }
 
 .btn-delete {
@@ -426,8 +478,10 @@ select option {
   background: transparent;
   border: 1px solid var(--border-spooky);
   color: var(--text-muted);
-  width: 32px;
-  height: 32px;
+  min-width: var(--tap-target);
+  min-height: var(--tap-target);
+  width: var(--tap-target);
+  height: var(--tap-target);
   border-radius: 6px;
   cursor: pointer;
   font-size: 1rem;
@@ -443,7 +497,6 @@ select option {
   background-color: var(--accent-rotten);
   color: #fff;
   border-color: var(--accent-rotten);
-  outline: none;
 }
 
 /* ===== Rescue Recipes ===== */
@@ -456,6 +509,7 @@ select option {
   background: transparent;
   border: 1px dashed var(--accent-wary);
   color: var(--accent-wary);
+  min-height: var(--tap-target);
   padding: 0.4rem 0.75rem;
   border-radius: 6px;
   cursor: pointer;
@@ -467,7 +521,6 @@ select option {
 .rescue-toggle:hover,
 .rescue-toggle:focus-visible {
   background-color: rgba(224, 164, 74, 0.1);
-  outline: none;
 }
 
 .rescue-toggle[aria-expanded="true"] {
@@ -494,14 +547,16 @@ select option {
   font-size: 0.95rem;
   font-family: var(--font-body);
   text-align: left;
+  min-height: var(--tap-target);
   padding: 0.25rem 0;
+  display: flex;
+  align-items: center;
   transition: color 0.2s;
 }
 
 .recipe-name:hover,
 .recipe-name:focus-visible {
   color: var(--accent-wary);
-  outline: none;
 }
 
 .recipe-name[aria-expanded="true"] {
@@ -612,6 +667,7 @@ select option {
 }
 
 .btn-modal {
+  min-height: var(--tap-target);
   padding: 0.625rem 1.5rem;
   border: none;
   border-radius: 6px;
@@ -631,7 +687,6 @@ select option {
 .btn-banish:focus-visible {
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(139, 26, 26, 0.5);
-  outline: none;
 }
 
 .btn-keep {
@@ -643,7 +698,6 @@ select option {
 .btn-keep:hover,
 .btn-keep:focus-visible {
   background-color: var(--border-spooky);
-  outline: none;
 }
 
 /* ===== Controls Strip ===== */
@@ -656,6 +710,7 @@ select option {
 }
 
 .ctrl-btn {
+  min-height: var(--tap-target);
   padding: 0.5rem 0.85rem;
   background-color: var(--bg-panel);
   color: var(--text-primary);
@@ -672,7 +727,6 @@ select option {
 .ctrl-btn:focus-visible {
   border-color: var(--accent-wary);
   background-color: rgba(224, 164, 74, 0.1);
-  outline: none;
 }
 
 .ctrl-btn.disabled,
@@ -759,7 +813,7 @@ select option {
 }
 
 .horror-row[data-urgency="rotten"] .horror-when {
-  color: var(--accent-rotten);
+  color: var(--accent-rotten-text);
 }
 
 /* ===== Impact Dashboard ===== */
@@ -804,7 +858,7 @@ select option {
 
 .impact-rescued .impact-value { color: var(--accent-fresh); }
 .impact-rescued { border-color: rgba(106, 191, 105, 0.3); }
-.impact-wasted .impact-value { color: var(--accent-rotten); }
+.impact-wasted .impact-value { color: var(--accent-rotten-text); }
 .impact-wasted { border-color: rgba(139, 26, 26, 0.3); }
 .impact-kg .impact-value { color: var(--accent-wary); }
 .impact-co2 .impact-value { color: var(--accent-fresh); }
@@ -1020,16 +1074,6 @@ select option {
 
   .item-name {
     font-size: 1.1rem;
-  }
-
-  .btn-delete {
-    width: 36px;
-    height: 36px;
-  }
-
-  .btn-rescue {
-    width: 36px;
-    height: 36px;
   }
 
   .stats-strip {
