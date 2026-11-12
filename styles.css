@@ -174,6 +174,15 @@ h1, h2, h3, h4 {
   border-color: rgba(106, 191, 105, 0.3);
 }
 
+.stat-streak .stat-value {
+  color: var(--accent-wary);
+  font-size: 1.4rem;
+}
+
+.stat-streak {
+  border-color: rgba(224, 164, 74, 0.3);
+}
+
 /* ===== Footer ===== */
 .footer {
   text-align: center;
@@ -247,6 +256,32 @@ h1, h2, h3, h4 {
 select option {
   background-color: var(--bg-deep);
   color: var(--text-primary);
+}
+
+.field-hint {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-style: italic;
+  margin-top: 0.25rem;
+}
+
+.form-field input[type="file"] {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+
+.photo-preview {
+  display: block;
+  margin-top: 0.5rem;
+}
+
+.photo-preview img {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--border-spooky);
 }
 
 .error-msg {
@@ -369,6 +404,15 @@ select option {
   flex-shrink: 0;
   text-align: center;
   animation: float 3s ease-in-out infinite;
+}
+
+.item-photo {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--border-spooky);
+  flex-shrink: 0;
 }
 
 .card[data-urgency="rotten"] .monster {
@@ -1001,7 +1045,135 @@ select option {
   color: var(--text-muted);
 }
 
-/* ===== Focus Visible (keyboard navigation) ===== */
+/* ===== Today's Challenge ===== */
+.challenge-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: var(--bg-panel);
+  border: 2px solid var(--accent-wary);
+  border-radius: 12px;
+  padding: 0.85rem 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.challenge-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.challenge-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.challenge-title {
+  font-size: 1.25rem;
+  color: var(--accent-wary);
+}
+
+.challenge-text {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.challenge-progress {
+  font-weight: 700;
+  color: var(--accent-fresh);
+  white-space: nowrap;
+}
+
+/* ===== Monster Codex Levels ===== */
+.level-badge {
+  display: inline-block;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--bg-deep);
+  background-color: var(--accent-wary);
+  padding: 0.1rem 0.5rem;
+  border-radius: 12px;
+  vertical-align: middle;
+}
+
+.xp-bar {
+  height: 6px;
+  background-color: var(--bg-deep);
+  border: 1px solid var(--border-spooky);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 0.4rem 0 0.25rem;
+}
+
+.xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-wary), var(--accent-danger));
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.xp-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 0.4rem;
+}
+
+/* ===== Night Mode ===== */
+body.night-mode {
+  background-color: #070510;
+}
+
+/* Drifting fog over the page (pointer-events off, so taps pass through). */
+body.night-mode::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 25% at 20% 80%, rgba(138, 127, 160, 0.14), transparent 70%),
+    radial-gradient(ellipse 50% 20% at 80% 20%, rgba(138, 127, 160, 0.12), transparent 70%);
+  animation: fogDrift 30s ease-in-out infinite alternate;
+}
+
+body.night-mode .app-title {
+  animation: flicker 4s linear infinite;
+}
+
+/* Glowing eyes that only appear in the dark, empty fridge. */
+.night-eyes {
+  display: none;
+  font-size: 2rem;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+  animation: eyesGlow 2.5s ease-in-out infinite;
+}
+
+body.night-mode .night-eyes {
+  display: block;
+}
+
+@keyframes fogDrift {
+  from { transform: translateX(-3%); opacity: 0.7; }
+  to { transform: translateX(3%); opacity: 1; }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.55; }
+  94% { opacity: 1; }
+  96% { opacity: 0.7; }
+  97% { opacity: 1; }
+}
+
+@keyframes eyesGlow {
+  0%, 100% { opacity: 0.55; text-shadow: 0 0 8px rgba(224, 164, 74, 0.4); }
+  50% { opacity: 1; text-shadow: 0 0 18px rgba(224, 164, 74, 0.9); }
+}
 *:focus-visible {
   outline: 2px solid var(--accent-wary);
   outline-offset: 2px;
