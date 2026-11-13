@@ -44,6 +44,7 @@ https://fhria5.github.io/freshtrack/
 - **Background Music** — horror ambient loop (Web Audio only: low drone + wind + eerie notes, on by default since Phase 23; Music toggle in the header, visible on every tab). Sound effects were removed in Phase 23 on user order.
 - **Freeze** — ❄️ Freeze button on every item card extends its expiry by 14 days (Phase 24); not a rescue, not waste, stats untouched, syncs to the household pantry like any other change.
 - **Codex progress** — secret monsters now show their progress on locked cards (Phase 24): Triple Threat "n / 3 rescued today" with a progress bar, Void King a 2-step checklist; unlock conditions unchanged.
+- **Louder music** — the horror background music is 3x louder and the drone sits at 110 Hz instead of 55 Hz, so phone speakers can actually play it (Phase 25); eerie notes and wind raised too.
 - **Share Card** — canvas-generated image with your rescue stats for
   #KiroweenHackathon26
 - **Haunted Household** - share one pantry with your whole household
@@ -110,7 +111,13 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    Triple Threat n/3 bar and Void King 2-step checklist, unlock
    conditions unchanged; merged from the user's uploaded file, whose
    fake OCR / fake sync link / Tailwind rewrite was not used) was also
-   completed directly against the spec for the same reason.
+   completed directly against the spec for the same reason. Phase 25
+   (louder music for phone speakers: master gain 0.15, drone 110 Hz)
+   and Phase 26 (MCP server over the live Worker, a custom QA agent
+   definition, and property-based tests) were also completed directly
+   against the spec for the same reason — by then a probe had proven
+   the 4,000 bonus credits do not work in Kiro CLI
+   (`MONTHLY_REQUEST_COUNT`), so no Kiro session was available at all.
 3. **Steering** - `.kiro/steering/` holds `product.md`, `tech.md`, and
    `structure.md`, describing the app as it actually is: vanilla JS, the
    localStorage keys, the Codex migration, the palette tokens, the 44px
@@ -121,7 +128,19 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    a syntax break is caught immediately. The hook file follows the
    documented Kiro v1 schema and its command was verified by direct
    simulation (passes on good files, exits non-zero on a broken file).
-5. **Verification** — urgency boundaries (11/11), recipe matching, and
+5. **MCP server, custom agent, property tests (Phase 26)** -
+   `mcp-server/` is a Node MCP server (`@modelcontextprotocol/sdk`,
+   stdio) exposing the live Worker: `get_health`, `get_recipe`,
+   `get_pantry`, `list_household_status`. `.kiro/settings/mcp.json`
+   registers it for Kiro IDE/Web, and
+   `.kiro/agents/freshtrack-qa.md` defines a QA agent that runs the
+   Playwright suites and reports failures with file and line.
+   `tests/test-properties.cjs` checks app invariants over 1,511 seeded
+   random cases (freeze +14 days, urgency monotonicity and boundaries,
+   recipe filter, household-code charset, Triple Threat cap). All three
+   were built directly from the Kiro spec after the plan credits ran
+   out — Kiro did not execute them, and the Devpost write-up says so.
+6. **Verification** — urgency boundaries (11/11), recipe matching, and
    integration tests (34/34) were run during the build; the finished app
    was checked in a real browser on desktop and mobile viewports, including
    the v2 flows: add item, AI Recipe fallback, rescue, Codex XP, streak,
@@ -148,7 +167,15 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    exact, stats untouched, survives reload, debounced pantry sync
    POST; Codex Triple Threat 0/3-1/3-2/3-captured and Void King
    2-step checklist, unlocks unchanged) and all eight suites pass
-   together (347 checks).
+   together (347 checks). Phase 25 added a 21-check suite (louder
+   music: master gain 0.15, drone 110/110.5 Hz, eerie notes and wind
+   raised, old 55 Hz / 0.05 values gone, footer v25.1, cache v5) and
+   all nine suites pass together (368 checks). Phase 26 added a
+   12-check property suite (freeze +14 days over 250 random dates,
+   urgency monotonicity over 250 offset pairs + 11 exact boundaries,
+   recipe filter over 250 random picks, 500 household codes, Triple
+   Threat cap over 250 random histories — 1,511 random cases) and all
+   ten suites pass together (380 checks).
 
 The `.kiro` directory in this repo is the evidence of that workflow.
 
