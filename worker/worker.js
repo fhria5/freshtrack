@@ -5,25 +5,15 @@
    exposed to the browser. When the secret is absent the Worker answers
    503 { error: 'ai_unavailable' } so the app can fall back silently.
    GET /api/health reports { ok, ai, app } without revealing key state
-   beyond whether AI is configured.
-   Abuse hardening (no new bindings or secrets): requests with an Origin
-   header outside ALLOWED_ORIGINS are rejected 403; per-IP limit is
-   10/min; a per-isolate daily budget of 500 recipe calls (UTC day)
-   answers 503 { error: 'daily_limit' }; ingredient names are sanitized
-   (control chars, quotes, braces/brackets, angle brackets stripped,
-   40 chars max) before they reach the prompt. Requests with no Origin
-   header (curl, server-side) are NOT blocked by the origin gate. */
+   beyond whether AI is configured. */
 
 var ALLOWED_ORIGINS = [
   'https://fhria5.github.io',
   'http://localhost:8901',
   'http://127.0.0.1:8901'
 ];
-var RATE_LIMIT = 10;            // requests per IP per minute
+var RATE_LIMIT = 30;            // requests per IP per minute
 var RATE_WINDOW_MS = 60 * 1000;
-var DAILY_LIMIT = 500;          // recipe calls per day per isolate (UTC day)
-var dailyDay = '';              // UTC date (YYYY-MM-DD) of the current budget
-var dailyCount = 0;
 var GEMINI_TIMEOUT_MS = 15000;
 var GEMINI_MODEL = 'gemini-3.5-flash-lite';
 var hits = new Map();
@@ -62,29 +52,6 @@ function rateLimited(ip) {
   list.push(now);
   hits.set(ip, list);
   return false;
-}
-
-// Per-isolate daily budget for recipe calls. Resets at UTC midnight.
-// Counts only calls that passed the per-IP check and are about to use
-// Gemini. Approximate by design: each isolate tracks its own budget,
-// so the true total across isolates can exceed DAILY_LIMIT.
-function dailyLimitReached() {
-  var today = new Date().toISOString().slice(0, 10);
-  if (today !== dailyDay) {
-    dailyDay = today;
-    dailyCount = 0;
-  }
-  if (dailyCount >= DAILY_LIMIT) return true;
-  dailyCount++;
-  return false;
-}
-
-// Strip anything that could break out of the ingredient list in the
-// prompt: control characters (incl. newlines), quotes, braces/brackets
-// and angle brackets. Caps the name at 40 chars.
-var STRIP_CHARS = /[\u0000-\u001F\u007F"'`{}\[\]<>\\]/g;
-function sanitizeIngredient(value) {
-  return String(value || '').replace(STRIP_CHARS, '').trim().slice(0, 40);
 }
 
 function getKey(env) {
@@ -141,7 +108,7 @@ async function handleRecipe(request, env, origin) {
   }
   var clean = [];
   for (var i = 0; i < ingredients.length; i++) {
-    var name = sanitizeIngredient(ingredients[i]);
+    var name = String(ingredients[i] || '').trim().slice(0, 60);
     if (name) clean.push(name);
   }
   if (clean.length === 0) {
@@ -156,10 +123,6 @@ async function handleRecipe(request, env, origin) {
   var ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   if (rateLimited(ip)) {
     return jsonResponse({ error: 'rate_limited', retryAfterSeconds: 60 }, 429, origin);
-  }
-
-  if (dailyLimitReached()) {
-    return jsonResponse({ error: 'daily_limit', message: 'Daily AI recipe budget reached. Try again tomorrow.' }, 503, origin);
   }
 
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL +
@@ -218,14 +181,6 @@ async function handleRequest(request, env) {
     path = path.slice('/freshtrack-ai'.length);
   }
   var origin = allowedOrigin(request);
-
-  // Real origin gate: a request that carries an Origin header outside the
-  // allowlist is rejected outright. Requests with no Origin header (curl,
-  // server-side) are NOT blocked by this check and continue below.
-  var rawOrigin = request.headers.get('Origin') || '';
-  if (rawOrigin && !origin) {
-    return jsonResponse({ error: 'forbidden_origin' }, 403, null);
-  }
 
   if (request.method === 'OPTIONS') {
     return corsPreflight(origin);
