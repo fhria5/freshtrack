@@ -608,7 +608,7 @@ Source: user order "No 2 harus dikerjakan" = Technological Implementation (crite
 
 Source: user order "Solusi" (14 Nov ~07:35), answering the Phase 28 report's open fix. In Phase 28 the PBT suite could not run in the Kiro Web sandbox because `tests/test-properties.cjs` required Playwright at the top (`Cannot find module 'playwright'`), even though only its last 2 checks needed a browser. The 10 pure property checks never needed Playwright at all.
 
-- [x] `tests/test-properties.cjs` is now PURE: Playwright require, `spawn`, and the browser smoke block removed; only `node:fs` remains. Runs with plain `node tests/test-properties.cjs`, no NODE_PATH, no Playwright. 10/10 locally (4 static + freeze 250 + monotonic 250 + boundaries 11 + filter 250 + codes 500 + threat 250 = 1,511 cases).
+- [x] `tests/test-properties.cjs` is now PURE: Playwright require, `spawn`, and the browser smoke block removed; only `node:fs` + `node:path` remain, and the repo root is resolved from the file location (`__dirname`) instead of a hardcoded sandbox path, so the file runs from any checkout. Runs with plain `node tests/test-properties.cjs`, no NODE_PATH, no Playwright. 10/10 locally (4 static + freeze 250 + monotonic 250 + boundaries 11 + filter 250 + codes 500 + threat 250 = 1,511 cases).
 - [x] New `tests/test-properties-browser.cjs`: the 2 browser smoke checks only (app loads footer v27.1, 0 non-network console errors, port 8906 pattern). Still needs Playwright + NODE_PATH. 2/2 locally.
 - [x] Total unchanged: 12/12 property checks (10 pure + 2 smoke); full regression still 380/380.
 - [x] `tests/test-properties-browser.cjs` added to FILES in deploy_freshtrack.py; README + freshtrack-qa.md updated.
