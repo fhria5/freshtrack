@@ -26,8 +26,12 @@ https://fhria5.github.io/freshtrack/
   AI is resting)
 - **Impact Dashboard** — rescued vs wasted counts, estimated kg of food saved
   and CO₂ avoided (clearly labeled estimates), with history
-- **Monster Codex** - collect the 4 monsters by rescuing items at each
-  urgency level; each rescue earns XP and monsters level up to Lv.5
+- **Monster Codex** - collect 8 monsters by rescuing items at each
+  urgency level; each rescue earns XP and monsters level up to Lv.5.
+  Four of the eight are secret monsters, hidden as ??? until their
+  unlock condition is met: Glimmer Sprout (rescue with an AI recipe),
+  Midnight Watcher (rescue at night), Triple Threat (3 rescues in one
+  day), Void King (open a Cook Tonight plan, then rescue)
 - **Daily rescue streak** - consecutive rescue days, plus a daily
   challenge ("Rescue 1 item") and a Weekly Recap card
 - **Night Horror Mode** - automatic after dark (18:00-06:00) with a
