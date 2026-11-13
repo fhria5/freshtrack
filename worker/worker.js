@@ -1,9 +1,11 @@
 /* FreshTrack AI Worker (classic Worker, no modules).
    POST /api/recipe { ingredients: [names], mode: 'single' | 'tonight' }
-   calls Gemini (gemini-3.5-flash-lite) and returns one recipe as JSON.
-   The Gemini key lives in the Worker secret GEMINI_API_KEY and is never
+   calls the Verboo router (glm-5.3-flash, OpenAI-compatible) and returns
+   one recipe as JSON.
+   The Verboo key lives in the Worker secret VERBOO_API_KEY and is never
    exposed to the browser. When the secret is absent the Worker answers
    503 { error: 'ai_unavailable' } so the app can fall back silently.
+   (The old GEMINI_API_KEY secret is left in place, unused, for rollback.)
    GET /api/health reports { ok, ai, sync, app } without revealing key
    state beyond whether AI is configured.
    GET /api/pantry?code=XXXXXX and POST /api/pantry store one shared
@@ -19,8 +21,9 @@ var ALLOWED_ORIGINS = [
 ];
 var RATE_LIMIT = 30;            // requests per IP per minute
 var RATE_WINDOW_MS = 60 * 1000;
-var GEMINI_TIMEOUT_MS = 15000;
-var GEMINI_MODEL = 'gemini-3.5-flash-lite';
+var AI_TIMEOUT_MS = 15000;
+var AI_BASE_URL = 'https://code.verboo.ai/router/v1';
+var AI_MODEL = 'glm-5.3-flash';
 var hits = new Map();
 
 // Server pantry (Haunted Household): one KV record per household code.
@@ -173,8 +176,8 @@ function rateLimited(ip) {
 }
 
 function getKey(env) {
-  if (env && typeof env.GEMINI_API_KEY === 'string' && env.GEMINI_API_KEY) return env.GEMINI_API_KEY;
-  if (typeof GEMINI_API_KEY !== 'undefined' && GEMINI_API_KEY) return GEMINI_API_KEY;
+  if (env && typeof env.VERBOO_API_KEY === 'string' && env.VERBOO_API_KEY) return env.VERBOO_API_KEY;
+  if (typeof VERBOO_API_KEY !== 'undefined' && VERBOO_API_KEY) return VERBOO_API_KEY;
   return '';
 }
 
@@ -243,20 +246,24 @@ async function handleRecipe(request, env, origin) {
     return jsonResponse({ error: 'rate_limited', retryAfterSeconds: 60 }, 429, origin);
   }
 
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL +
-    ':generateContent?key=' + encodeURIComponent(key);
+  var url = AI_BASE_URL + '/chat/completions';
   var payload = {
-    contents: [{ parts: [{ text: buildPrompt(clean, mode) }] }],
-    generationConfig: { temperature: 0.7, maxOutputTokens: 800 }
+    model: AI_MODEL,
+    messages: [
+      { role: 'system', content: 'You are a helpful cooking assistant. Reply with JSON only, no markdown, no extra text.' },
+      { role: 'user', content: buildPrompt(clean, mode) }
+    ],
+    temperature: 0.7,
+    max_tokens: 800
   };
 
   var ctrl = new AbortController();
-  var timer = setTimeout(function () { ctrl.abort(); }, GEMINI_TIMEOUT_MS);
-  var geminiResp;
+  var timer = setTimeout(function () { ctrl.abort(); }, AI_TIMEOUT_MS);
+  var aiResp;
   try {
-    geminiResp = await fetch(url, {
+    aiResp = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
       body: JSON.stringify(payload),
       signal: ctrl.signal
     });
@@ -266,18 +273,18 @@ async function handleRecipe(request, env, origin) {
   }
   clearTimeout(timer);
 
-  if (!geminiResp || !geminiResp.ok) {
+  if (!aiResp || !aiResp.ok) {
     return jsonResponse({ error: 'ai_failed' }, 502, origin);
   }
   var data;
   try {
-    data = await geminiResp.json();
+    data = await aiResp.json();
   } catch (e) {
     return jsonResponse({ error: 'ai_failed' }, 502, origin);
   }
   var text = '';
   try {
-    text = data.candidates[0].content.parts[0].text || '';
+    text = data.choices[0].message.content || '';
   } catch (e) {
     text = '';
   }
