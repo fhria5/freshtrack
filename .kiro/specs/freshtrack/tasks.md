@@ -383,3 +383,37 @@ Implementation tasks for the FreshTrack app. Each task is self-contained and ver
 - [x] README: note Phase 18 + Phase 19 were completed directly against the spec (Kiro plan credits exhausted), and record the Phase 19 audit counts.
 - [x] Update `rencana-submit-kiroween.md`: AI recipes done, Phase 18 done, Phase 19 done; video v1 is stale, re-record from v2; submit target 30 Nov-2 Des.
 - [x] Deploy via `deploy_freshtrack.py`; verify live from GitHub Pages (curl fresh app.js/styles.css content + repo blob SHA equals local).
+
+## Phase 20: Score Plan (Jalur A-D) — 13 Nov 2026
+Score plan from `rencana-naik-skor.md` (user: run every lane that raises the odds, A -> B -> C -> D). Kiro plan credits exhausted (50/50, reset 1 Dec); bonus 4,000 untouched by CLI. All Phase 20 work done directly against this spec. D1 is NOT usable with the stored Cloudflare credential (D1 list/create return auth error 10000), so server pantry storage uses Workers KV instead (namespace `freshtrack-pantry`, binding `PANTRY_KV`).
+
+### Task 20.1 — Jalur B2: server pantry (Worker KV + app sync)
+- [x] Worker `freshtrack-ai`: `GET /api/pantry?code=XXXXXX` (200 with pantry/devices/updatedAt, 404 not_found, 400 bad code) and `POST /api/pantry` (200 ok, 409 stale with the newer server copy, 400 bad body, 413 too large, 502 sync_failed, 503 sync_unavailable). KV key `household:<CODE>`, last-write-wins by `updatedAt` (5s skew tolerance), devices capped at 10, pantry JSON capped at 64KB, items capped at 200. Rate limit 30/IP/min shared with the recipe API. Health now reports `sync: true/false` alongside `ai`.
+- [x] KV namespace `freshtrack-pantry` created (id `a9d1d812378b48c4a3bdc9ee3a1dac48`) and bound to the Worker via PATCH settings (multipart, part "settings", proven Gembala pattern). Script `worker/bind_kv.py` records the steps. The GEMINI_API_KEY secret binding is re-declared without a text value, so the secret survives (verified: health still `ai: true`).
+- [x] App sync engine (`app.js`): `freshtrack.sync` state { code, deviceId, updatedAt, lastSyncAt, status, devices }; `collectPantry()` (photos stripped, server cap); `applyPantry()` (adopts server copy, keeps local photos by id); debounced push (1500ms) after every mutation via the save functions; pull on load (adopts only when newer); 409 adopts the server copy; failures are silent and the app keeps working offline.
+- [x] Verify: live curl — health `{ ok: true, ai: true, sync: true }`; GET unknown 404, GET bad 400, POST new 200, GET back 200, POST stale 409, POST bad 400; recipe POST still returns a real Gemini recipe. Test household `TST001` deleted afterwards (KV is eventually consistent; the delete returned 200).
+
+### Task 20.2 — Jalur C: Haunted Household (shared pantry)
+- [x] Household panel in the app (`renderHousehold`, between controls and form): join by 6-char code (alphabet skips 0/O/1/I/L) or create one; code shown with a Copy button; live status line (Synced / Syncing... / Offline / Household not found); Leave button (local pantry stays). Inline errors for bad format and unknown code; no raw error text.
+- [x] Verify: `tests/test-phase20.cjs` covers create (code + push + Synced), mutation push, photo stripped from push but rendered locally, join from a second device (adopts server pantry), bad code, unknown code (404), stale push (409 adopts server copy incl. souls count), leave (keeps local pantry), offline (create + add item still work, status Offline, 0 page errors). 41/41.
+
+### Task 20.3 — Jalur D: PWA installable
+- [x] `manifest.json` (name "FreshTrack: Fridge Horror", standalone, theme #0d0a14, icons 192 + 512), `sw.js` (cache `freshtrack-v1`: app shell cache-first, API always network, navigation falls back to cached index.html offline), `icons/icon-192.png` + `icons/icon-512.png` (jack-o-lantern + FT, PIL-drawn, matches the horror palette), manifest + apple-touch-icon links in `index.html`, service worker registered from `init()` (best effort, silent failure).
+- [x] Verify: manifest + sw.js + icons serve 200 in Playwright; `navigator.serviceWorker.getRegistration()` returns a registration; covered in `tests/test-phase20.cjs`.
+
+### Task 20.4 — Jalur B1: Kiro bonus + hook investigation (separate report)
+- [x] `kiro-cli chat /usage` re-checked 13 Nov ~19:35: KIRO FREE 50.00/50, 100%, reset 2026-12-01; no bonus line. CLI now v3.3.0.
+- [x] Findings written to `~/workspace/goals/kiroween-registration-and-4-000-credit-claim/files/temuan-kiro-bonus-dan-hook.md`: no official doc says whether the 4,000 bonus works in CLI vs Web, or whether `/usage` shows promo credit; the earlier "0/4000 in web" claim could not be re-verified without logging in (forbidden in this task). User steps recorded: check app.kiro.dev/account/usage for a "kiroween" balance, then a tiny CLI test task. Hook PostFileSave: format matches the official v1 schema, simulation passes both ways (valid file exit 0, broken file exit 1), live confirmation still blocked (needs a Kiro session with credits).
+- [x] Devpost honesty rules recorded in that file: no "built entirely with Kiro", no "bonus used in CLI", no "hook verified live", no "built with Kiro Web".
+
+### Task 20.5 — Jalur A: video v2 + honest write-up (delegated, DONE)
+- [x] Delegated to a child agent: re-record the demo from the live app (AI Recipe + filter + Cook Tonight + Codex 8 monsters + one secret unlocked) as `video/freshtrack-demo-v2.mp4` (1280x720, crf 23), refresh the video script (drop "Built entirely with Kiro"), and write the honest Devpost write-up draft to `~/workspace/goals/kiroween-registration-and-4-000-credit-claim/files/draf-writeup-devpost.md`. YouTube Public upload stays a user step (account owner only).
+- [x] Child result verified on disk: video 80.6s, 1280x720, 25fps, H.264 crf 23, 2.7MB, AAC; live Gemini recipes on camera ("Overripe Banana Bread", "Caribbean Banana Chicken Skillet"); 4/4 secrets unlocked on camera, Codex 7/8; TTS narration 7 segments, no clipping; script + write-up 0 em dashes. The "Built entirely with Kiro" phrase appears once in the script only as a note that the claim is no longer used.
+- [x] Caveat recorded honestly: the video was recorded 13 Nov ~19:33-19:34 from local files that matched live at that moment, minutes before the Phase 20 Household/PWA deploy, so the Haunted Household panel and PWA do not appear on camera. The write-up draft was patched by the coordinator after the child finished (Household + PWA bullets, KV in Tech, Phase 20 in "Built with Kiro", 141-check total, video caveat note) so the text describes the live app accurately. Re-recording to show Household is a parent decision, not required by the Jalur A spec.
+
+### Task 20.6 — Docs + deploy (B/C/D)
+- [x] `deploy_freshtrack.py` FILES gains manifest.json, sw.js, icons, worker/bind_kv.py, tests/test-phase20.cjs.
+- [x] README: Phase 20 noted (KV sync, Household, PWA, B1 findings, video pending), still honest about the Kiro split.
+- [x] Update `rencana-submit-kiroween.md` and `rencana-naik-skor.md`: B/C/D done, A in progress, user steps listed.
+- [x] Verify: Phase 20 suite 41/41; regressions v2 27/27, Codex secrets 18/18, Phase 19 audit 55/55; `node --check` passes on app.js, recipes.js, worker.js, sw.js, test-phase20.cjs; 0 new em dashes (app.js back to 11 legacy).
+- [x] Deploy via `deploy_freshtrack.py`; verify live: all 8 changed/new blob SHAs match local (app.js, styles.css, index.html, manifest.json, sw.js, worker.js, both icons), demo 200, new strings present in live files, Worker health `{ ok: true, ai: true, sync: true }`.
