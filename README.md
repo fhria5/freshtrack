@@ -41,7 +41,7 @@ https://fhria5.github.io/freshtrack/
   (downscaled before saving, max 20 photos)
 - **Daily Reminder** — browser notification + in-app "Today's Horrors" list of
   items expiring today or tomorrow
-- **Spooky Sounds** — synthesized Web Audio effects (on by default since Phase 22; toggle + Test Sound button in the controls strip)
+- **Background Music** — horror ambient loop (Web Audio only: low drone + wind + eerie notes, on by default since Phase 23; Music toggle in the header, visible on every tab). Sound effects were removed in Phase 23 on user order.
 - **Share Card** — canvas-generated image with your rescue stats for
   #KiroweenHackathon26
 - **Haunted Household** - share one pantry with your whole household
@@ -99,7 +99,11 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    design: blood-red accents, drifting mist, flickering title, glowing
    danger cards; Spooky Sounds on by default with a Test Sound button and
    sounds on tab switch, add, rescue, and secret unlock) was also
-   completed directly against the spec for the same reason.
+   completed directly against the spec for the same reason. Phase 23
+   (horror background music: Web Audio drone + wind + eerie notes,
+   Music toggle moved into the header so it is visible on every tab;
+   sound effects removed entirely on user order) was also completed
+   directly against the spec for the same reason.
 3. **Steering** - `.kiro/steering/` holds `product.md`, `tech.md`, and
    `structure.md`, describing the app as it actually is: vanilla JS, the
    localStorage keys, the Codex migration, the palette tokens, the 44px
@@ -127,7 +131,13 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    suite (horror design tokens and effects, AA contrast re-audit,
    sounds default on, AudioContext running after a gesture, Test Sound
    button, sounds on tab/add/rescue/secret events, pref persistence)
-   and all six suites pass together (237 checks).
+   and all six suites pass together (237 checks). Phase 23 replaced the
+   sound effects with a background-music suite (49 checks: music default
+   on, start after gesture, eerie notes, header toggle visible on every
+   tab, pause on hidden tab, pref persistence, effects fully removed)
+   and rewrote the Phase 22 suite to 48 checks (design kept,
+   effects-removal verified); all seven suites pass together
+   (295 checks).
 
 The `.kiro` directory in this repo is the evidence of that workflow.
 
