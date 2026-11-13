@@ -173,15 +173,20 @@ async function main() {
     check('rescue starts streak', (after.streak.count || 0) >= 1, JSON.stringify(after.streak));
     check('rescue increments souls saved', Number(after.souls) >= 1, 'souls=' + after.souls);
 
-    // Night mode toggle. The sandbox browser runs on UTC, so at this hour
-    // auto mode is already night; cycle twice (auto -> on -> off) to see
-    // the class flip off.
+    // Night mode toggle. Time-independent: one click must flip the class
+    // from the initial state, and two more clicks must return to it
+    // (Auto -> On -> Off -> Auto). The old version clicked twice and
+    // assumed UTC night, which fails during UTC daytime.
     const nightBefore = await page.evaluate(() => document.body.classList.contains('night-mode'));
+    await page.click('[data-action="cycle-night"]');
+    await page.waitForTimeout(300);
+    const nightMid = await page.evaluate(() => document.body.classList.contains('night-mode'));
+    check('night mode flips on one click', nightMid !== nightBefore, 'before=' + nightBefore + ' after1=' + nightMid);
     await page.click('[data-action="cycle-night"]');
     await page.click('[data-action="cycle-night"]');
     await page.waitForTimeout(300);
     const nightAfter = await page.evaluate(() => document.body.classList.contains('night-mode'));
-    check('night mode toggles', nightBefore !== nightAfter, 'before=' + nightBefore + ' after=' + nightAfter);
+    check('night mode returns after full cycle', nightAfter === nightBefore, 'before=' + nightBefore + ' after3=' + nightAfter);
 
     // Photo: attach a tiny PNG to the form input, add an item, check the photo renders.
     const pngPath = path.join(REPO, 'tests', 'tiny.png');
