@@ -181,7 +181,7 @@ async function main() {
 
     // ===== Footer version stamp =====
     const version = await page.evaluate(() => (document.querySelector('.footer-version') || {}).textContent || '');
-    check('version: footer reads v25.1', version.indexOf('v25.1') !== -1, version.trim());
+    check('version: footer reads v27.1', version.indexOf('v27.1') !== -1, version.trim());
 
     // ===== Desktop: toggle visible in the header on every tab =====
     const desk = await browser.newPage({ viewport: { width: 1280, height: 800 } });
