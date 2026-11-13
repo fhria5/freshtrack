@@ -1208,6 +1208,7 @@
           '<div class="card-actions">' +
             '<button class="btn-ai" data-action="ai-recipe" data-id="' + escapeHtml(item.id) + '" data-name="' + escapeHtml(item.name) + '" title="Get an AI recipe" aria-label="Get an AI recipe for ' + escapeHtml(item.name) + '">\u2728</button>' +
             '<button class="btn-rescue" data-action="rescue" data-id="' + escapeHtml(item.id) + '" data-name="' + escapeHtml(item.name) + '" aria-label="Rescue ' + escapeHtml(item.name) + '">\u{1F6E1}\uFE0F</button>' +
+            '<button class="btn-freeze" data-action="freeze" data-id="' + escapeHtml(item.id) + '" data-name="' + escapeHtml(item.name) + '" title="Freeze item, extend expiry by 14 days" aria-label="Freeze ' + escapeHtml(item.name) + ', extend expiry by 14 days">\u2744\uFE0F</button>' +
             '<button class="btn-delete" data-action="delete" data-id="' + escapeHtml(item.id) + '" data-name="' + escapeHtml(item.name) + '" aria-label="Delete ' + escapeHtml(item.name) + '">\u2715</button>' +
           '</div>' +
         '</div>';
@@ -1548,7 +1549,7 @@
       '<footer class="footer">' +
         '<p>Kiroween 2026 \u2014 Costume Contest</p>' +
         '<p class="footer-flavor">Don\u2019t let the monsters win. \uD83C\uDF83</p>' +
-        '<p class="footer-version">FreshTrack v23.1 (music on by default)</p>' +
+        '<p class="footer-version">FreshTrack v24.1 (music on by default)</p>' +
       '</footer>';
   }
 
@@ -1805,6 +1806,28 @@
     return n;
   }
 
+  // Progress toward a secret monster, shown on its locked Codex card.
+  // Display only: unlock conditions are unchanged (see checkSecretUnlocks).
+  function secretProgressHtml(key) {
+    if (key === 'secretDanger') {
+      // Triple Threat: 3 rescues in a single day.
+      var today = Math.min(3, countRescuedToday());
+      var pct = Math.round(today / 3 * 100);
+      return '' +
+        '<div class="xp-bar" role="img" aria-label="Triple Threat progress, ' + today + ' of 3 rescues today">' +
+          '<div class="xp-fill" style="width: ' + pct + '%"></div>' +
+        '</div>' +
+        '<p class="xp-text">' + today + ' / 3 rescued today</p>';
+    }
+    if (key === 'secretRotten') {
+      // Void King: open a Cook Tonight plan, then rescue an item. Step 2
+      // completes on the rescue that captures it, so it stays open here.
+      var step1 = tonightPlanOpen ? '\u2714' : '\u2B1C';
+      return '<p class="xp-text">Step 1: Cook Tonight opened ' + step1 + ' \u00B7 Step 2: Rescue after \u2B1C</p>';
+    }
+    return '';
+  }
+
   function renderSecretCard(key) {
     var m = SECRET_MONSTERS[key];
     var captured = secretCaptured[key];
@@ -1825,6 +1848,7 @@
         '<div class="codex-info">' +
           '<h3 class="codex-name">??? Secret Monster</h3>' +
           '<p class="codex-lore">' + escapeHtml(m.hint) + '</p>' +
+          secretProgressHtml(key) +
           '<span class="codex-badge secret">Secret</span>' +
         '</div>' +
       '</div>';
@@ -1929,6 +1953,25 @@
     recordRescueDay();
     saveItems();
     if (item) announce(item.name + ' rescued. One more soul saved.');
+    render();
+  }
+
+  // Freeze: extend an item's expiry by 14 days from its current expiry.
+  // Not a rescue and not waste: stats, souls and history are untouched.
+  function freezeItem(id) {
+    var item = findItemById(id);
+    if (!item) return;
+    var parts = (item.expiryDate || '').split('-');
+    var d = parts.length === 3
+      ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 12, 0, 0)
+      : new Date();
+    d.setDate(d.getDate() + 14);
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    item.expiryDate = y + '-' + m + '-' + day;
+    saveItems();
+    announce(item.name + ' frozen. New expiry ' + item.expiryDate + '.');
     render();
   }
 
@@ -2236,6 +2279,10 @@
       e.preventDefault();
       var rescueId = target.getAttribute('data-id');
       rescueItem(rescueId);
+
+    } else if (action === 'freeze') {
+      e.preventDefault();
+      freezeItem(target.getAttribute('data-id'));
 
     } else if (action === 'summon-demo') {
       e.preventDefault();
