@@ -2,12 +2,7 @@
  * FreshTrack — Built-in Recipe Bank
  *
  * Pure data file. Defines a global RECIPES array consumed by app.js.
- * Each recipe has: name, category, description, ingredients (array),
- * instructions (array), timeMinutes, and `main` — the real main
- * ingredient(s) this recipe rescues, as singular lowercase food names
- * (e.g. 'banana', 'chicken'). Matching uses `main` first; the category
- * keywords below are only a fallback ("Also try") signal and are never
- * shown to the user as ingredients.
+ * Each recipe has: name, description, ingredients (array), instructions (array).
  *
  * Ingredients may contain food item names (e.g., "spinach") or category keywords
  * (e.g., "fresh produce", "dairy products", "meat", "pantry staples", "bakery item")
@@ -17,7 +12,6 @@ const RECIPES = [
   {
     name: 'Banana Bread',
     category: 'Snack',
-    main: ['banana'],
     description: 'A classic way to rescue overripe bananas before they turn.',
     ingredients: [
       'overripe bananas',
@@ -42,7 +36,6 @@ const RECIPES = [
   {
     name: 'Sautéed Spinach',
     category: 'Dinner',
-    main: ['spinach'],
     description: 'Quick, healthy side dish that saves wilting spinach.',
     ingredients: [
       'spinach',
@@ -64,7 +57,6 @@ const RECIPES = [
   {
     name: 'Veggie Scramble',
     category: 'Breakfast',
-    main: ['egg'],
     description: 'A flexible breakfast that uses up eggs and any lingering vegetables.',
     ingredients: [
       'eggs',
@@ -85,7 +77,6 @@ const RECIPES = [
   {
     name: 'Chicken Soup',
     category: 'Dinner',
-    main: ['chicken'],
     description: 'Comforting homemade soup perfect for chicken nearing its date.',
     ingredients: [
       'chicken',
@@ -112,7 +103,6 @@ const RECIPES = [
   {
     name: 'Tomato Pasta Sauce',
     category: 'Dinner',
-    main: ['tomato'],
     description: 'Slow-cooked sauce that rescues soft, wrinkling tomatoes.',
     ingredients: [
       'tomatoes',
@@ -138,7 +128,6 @@ const RECIPES = [
   {
     name: 'Grilled Cheese',
     category: 'Lunch',
-    main: ['cheese', 'bread'],
     description: 'The ultimate comfort food for aging cheese and stale bread.',
     ingredients: [
       'cheese',
@@ -158,7 +147,6 @@ const RECIPES = [
   {
     name: 'Fried Rice',
     category: 'Dinner',
-    main: ['rice'],
     description: 'Fast weeknight dinner that uses leftover rice, eggs, and veg.',
     ingredients: [
       'rice',
@@ -186,7 +174,6 @@ const RECIPES = [
   {
     name: 'Smoothie Bowl',
     category: 'Breakfast',
-    main: ['yogurt', 'banana'],
     description: 'A refreshing way to use up yogurt and fruit before they spoil.',
     ingredients: [
       'yogurt',
@@ -207,7 +194,6 @@ const RECIPES = [
   {
     name: 'Stale Bread Croutons',
     category: 'Snack',
-    main: ['bread'],
     description: 'Transform stale bread into crispy croutons for salads and soups.',
     ingredients: [
       'bread',
@@ -230,7 +216,6 @@ const RECIPES = [
   {
     name: 'Milk Pancakes',
     category: 'Breakfast',
-    main: ['milk'],
     description: 'Fluffy pancakes to use up milk before it sours.',
     ingredients: [
       'milk',
@@ -256,7 +241,6 @@ const RECIPES = [
   {
     name: 'Overnight Oats',
     category: 'Breakfast',
-    main: ['oat'],
     description: 'No-cook breakfast that uses up oats and milk before they go bad.',
     ingredients: [
       'oats',
@@ -279,7 +263,6 @@ const RECIPES = [
   {
     name: 'Cheese Omelette',
     category: 'Breakfast',
-    main: ['egg', 'cheese'],
     description: 'Simple omelette to rescue eggs and cheese nearing their date.',
     ingredients: [
       'eggs',
@@ -302,7 +285,6 @@ const RECIPES = [
   {
     name: 'Potato Hash',
     category: 'Breakfast',
-    main: ['potato'],
     description: 'Hearty hash that turns soft potatoes and onions into a crispy meal.',
     ingredients: [
       'potatoes',
@@ -328,7 +310,6 @@ const RECIPES = [
   {
     name: 'Apple Crumble',
     category: 'Snack',
-    main: ['apple'],
     description: 'Warm dessert that rescues soft, bruised apples with a crunchy oat topping.',
     ingredients: [
       'apples',
@@ -353,7 +334,6 @@ const RECIPES = [
   {
     name: 'Tomato Bruschetta',
     category: 'Snack',
-    main: ['tomato', 'bread'],
     description: 'Fresh topping for stale bread that rescues ripe tomatoes.',
     ingredients: [
       'tomatoes',
@@ -378,7 +358,6 @@ const RECIPES = [
   {
     name: 'Garlic Herb Butter Pasta',
     category: 'Dinner',
-    main: ['pasta'],
     description: 'Rich pasta that uses up fresh herbs and butter in a quick sauce.',
     ingredients: [
       'pasta',
@@ -405,7 +384,6 @@ const RECIPES = [
   {
     name: 'Chicken Stir Fry',
     category: 'Dinner',
-    main: ['chicken'],
     description: 'Quick stir fry that saves chicken and rice before they go to waste.',
     ingredients: [
       'chicken',
@@ -433,7 +411,6 @@ const RECIPES = [
   {
     name: 'Shakshuka',
     category: 'Lunch',
-    main: ['tomato', 'egg'],
     description: 'Eggs poached in spiced tomato sauce, perfect for soft tomatoes and eggs.',
     ingredients: [
       'tomatoes',
@@ -462,7 +439,6 @@ const RECIPES = [
   {
     name: 'Cheesy Baked Potatoes',
     category: 'Dinner',
-    main: ['potato', 'cheese'],
     description: 'Loaded baked potatoes that rescue cheese and milk before they spoil.',
     ingredients: [
       'potatoes',
@@ -489,7 +465,6 @@ const RECIPES = [
   {
     name: 'Banana Smoothie',
     category: 'Breakfast',
-    main: ['banana'],
     description: 'Quick blended smoothie for overripe bananas and yogurt on their last day.',
     ingredients: [
       'banana',
@@ -498,6 +473,8 @@ const RECIPES = [
       'honey',
       'vanilla extract',
       'ice',
+      'dairy products',
+      'fresh produce'
     ],
     instructions: [
       'Peel 2 overripe bananas and break into chunks.',
@@ -510,7 +487,6 @@ const RECIPES = [
   {
     name: 'Carrot Ginger Soup',
     category: 'Lunch',
-    main: ['carrot'],
     description: 'Warm spiced soup that rescues carrots and fresh ginger before they wilt.',
     ingredients: [
       'carrots',
@@ -537,7 +513,6 @@ const RECIPES = [
   {
     name: 'Bread Pudding',
     category: 'Snack',
-    main: ['bread', 'milk'],
     description: 'Sweet baked pudding that turns stale bread and milk into dessert.',
     ingredients: [
       'bread',
@@ -563,7 +538,6 @@ const RECIPES = [
   {
     name: 'Yogurt Herb Dip',
     category: 'Snack',
-    main: ['yogurt'],
     description: 'Cool herby dip for yogurt on its last day, served with bread or vegetables.',
     ingredients: [
       'yogurt',
@@ -590,7 +564,6 @@ const RECIPES = [
   {
     name: 'Creamy Mushroom Pasta',
     category: 'Dinner',
-    main: ['mushroom', 'pasta'],
     description: 'Rich creamy pasta that rescues mushrooms, cream, and garlic together.',
     ingredients: [
       'pasta',
@@ -618,7 +591,6 @@ const RECIPES = [
   {
     name: 'French Toast',
     category: 'Breakfast',
-    main: ['bread', 'egg'],
     description: 'Golden fried toast that rescues stale bread, eggs, and milk in minutes.',
     ingredients: [
       'bread',
@@ -638,95 +610,6 @@ const RECIPES = [
       'Fry the slices 2 to 3 minutes per side until golden brown.',
       'Dust with sugar and drizzle with honey.',
       'Serve hot with fruit if you have any.'
-    ]
-  },
-  {
-    name: 'Mac and Cheese',
-    category: 'Dinner',
-    main: ['cheese', 'pasta'],
-    description: 'Creamy stovetop mac and cheese that rescues aging cheese and dried pasta.',
-    timeMinutes: 25,
-    ingredients: [
-      '200 g macaroni',
-      '150 g grated cheese',
-      '1 tbsp butter',
-      '1 tbsp flour',
-      '200 ml milk',
-      'salt',
-      'pepper',
-      'mustard'
-    ],
-    instructions: [
-      'Boil the macaroni in salted water until tender, about 8 minutes, then drain.',
-      'Melt butter in a pan, stir in flour and cook 1 minute.',
-      'Slowly pour in the milk, stirring until the sauce thickens.',
-      'Stir in the grated cheese and a pinch of mustard until melted and smooth.',
-      'Toss the macaroni through the sauce, season with salt and pepper, and serve hot.'
-    ]
-  },
-  {
-    name: 'Cheese Quesadilla',
-    category: 'Lunch',
-    main: ['cheese'],
-    description: 'Crispy folded tortilla with melted cheese — a 10-minute rescue for cheese and tortillas.',
-    timeMinutes: 10,
-    ingredients: [
-      '2 flour tortillas',
-      '100 g grated cheese',
-      '1 tbsp butter',
-      'salsa'
-    ],
-    instructions: [
-      'Melt butter in a pan over medium heat.',
-      'Lay one tortilla flat and sprinkle grated cheese over one half.',
-      'Fold the tortilla and cook 2–3 minutes per side until golden and the cheese melts.',
-      'Cut into wedges and serve with salsa.'
-    ]
-  },
-  {
-    name: 'Spinach Omelette',
-    category: 'Breakfast',
-    main: ['spinach', 'egg'],
-    description: 'Fluffy omelette packed with spinach — a quick breakfast rescue for eggs and wilting leaves.',
-    timeMinutes: 10,
-    ingredients: [
-      '3 eggs',
-      '2 cups fresh spinach',
-      '30 g grated cheese',
-      '1 tbsp butter',
-      'salt',
-      'pepper'
-    ],
-    instructions: [
-      'Whisk 3 eggs with salt and pepper.',
-      'Melt butter in a pan over medium heat and wilt the spinach, about 1 minute.',
-      'Pour in the eggs and cook gently until almost set.',
-      'Sprinkle cheese on top, fold, and cook 1 minute more.',
-      'Slide onto a plate and serve hot.'
-    ]
-  },
-  {
-    name: 'Creamy Spinach Pasta',
-    category: 'Dinner',
-    main: ['spinach', 'pasta'],
-    description: 'Silky garlic cream pasta loaded with spinach — wilting leaves disappear into dinner.',
-    timeMinutes: 20,
-    ingredients: [
-      '200 g pasta',
-      '4 cups fresh spinach',
-      '2 cloves garlic',
-      '150 ml cream',
-      '40 g grated cheese',
-      '1 tbsp olive oil',
-      'salt',
-      'pepper'
-    ],
-    instructions: [
-      'Boil the pasta in salted water until tender, then drain, saving a splash of pasta water.',
-      'Heat olive oil in a pan and sauté minced garlic for 30 seconds.',
-      'Add the spinach and toss until wilted, 2–3 minutes.',
-      'Pour in the cream, simmer 2 minutes, then stir in the grated cheese.',
-      'Toss the pasta through the sauce, season with salt and pepper, and serve hot.'
     ]
   }
 ];
