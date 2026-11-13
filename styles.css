@@ -1045,6 +1045,30 @@ select option {
   color: var(--text-muted);
 }
 
+.codex-card.secret {
+  border-style: dashed;
+  border-left-color: var(--accent-wary);
+}
+
+.codex-card.secret[data-state="secret"] {
+  opacity: 0.75;
+}
+
+.codex-secret-mark {
+  font-family: Creepster, Impact, "Arial Black", sans-serif;
+  font-size: 2rem;
+  line-height: 1;
+  width: 2.5rem;
+  flex-shrink: 0;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.codex-badge.secret {
+  background-color: rgba(224, 164, 74, 0.15);
+  color: var(--accent-wary);
+}
+
 /* ===== Today's Challenge ===== */
 .challenge-section {
   display: flex;
