@@ -20,7 +20,7 @@
   var aiRecipeReady = {};   // itemId -> true once a real AI recipe arrived for that item
   var tonightPlanOpen = false; // true after a Cook Tonight plan is shown, spent by the next rescue
   var streakState = { count: 0, lastDate: null }; // consecutive rescue days
-  var soundsEnabled = true;         // Spooky Sounds toggle (default ON since Phase 22: user asked for sound)
+  var musicEnabled = true;          // Background music toggle (default ON since Phase 23: user asked for music)
   var nightPref = 'auto';           // Night Mode: 'auto' | 'on' | 'off'
   var recipeFilter = 'All';         // recipe category filter: 'All' | 'Breakfast' | 'Lunch' | 'Snack' | 'Dinner'
   var aiCache = {};                 // AI recipes in memory only, keyed by item name (lowercase)
@@ -29,6 +29,7 @@
   var aiOpen = {};                  // item names with the AI recipe expanded
   var tonightLoading = false;       // Cook Tonight request in flight
   var audioCtx = null;              // lazily-created Web Audio context
+  var musicNodes = null;            // live music graph, null when music is off
   var activeTab = 'pantry';         // visible tab: 'pantry' | 'impact' | 'codex' | 'share'
   var TAB_IDS = ['pantry', 'impact', 'codex', 'share'];
   var TAB_TITLES = { pantry: 'Pantry', impact: 'Impact Dashboard', codex: 'Monster Codex', share: 'Share the Horror' };
@@ -42,7 +43,7 @@
   var SOULS_KEY = 'freshtrack.soulsSaved';
   var HISTORY_KEY = 'freshtrack.history';
   var CODEX_KEY = 'freshtrack.codex';
-  var SOUNDS_KEY = 'freshtrack.sounds';
+  var MUSIC_KEY = 'freshtrack.music';
   var STREAK_KEY = 'freshtrack.streak';
   var NIGHT_KEY = 'freshtrack.nightmode';
   var AI_API_URL = 'https://grokingstore.my.id/freshtrack-ai/api/recipe';
@@ -668,7 +669,6 @@
     if (!secretCaptured.hasOwnProperty(key) || secretCaptured[key]) return false;
     secretCaptured[key] = true;
     saveCodex();
-    playSecret();
     announce('Secret monster captured: ' + SECRET_MONSTERS[key].name + '!');
     return true;
   }
@@ -766,21 +766,21 @@
     document.body.classList.toggle('night-mode', nightActive());
   }
 
-  // ===== Spooky Sounds Persistence =====
+  // ===== Background Music Persistence =====
 
-  // Default ON since Phase 22 (user asked for sound). Only an explicit
-  // stored 'false' (user turned sounds off) keeps them off.
-  function loadSoundsEnabled() {
+  // Default ON since Phase 23 (user asked for music). Only an explicit
+  // stored 'false' (user turned music off) keeps it off.
+  function loadMusicEnabled() {
     try {
-      return localStorage.getItem(SOUNDS_KEY) !== 'false';
+      return localStorage.getItem(MUSIC_KEY) !== 'false';
     } catch (e) {
       return true;
     }
   }
 
-  function saveSoundsEnabled() {
+  function saveMusicEnabled() {
     try {
-      localStorage.setItem(SOUNDS_KEY, soundsEnabled ? 'true' : 'false');
+      localStorage.setItem(MUSIC_KEY, musicEnabled ? 'true' : 'false');
     } catch (e) {
       /* silent */
     }
@@ -794,30 +794,30 @@
     return audioCtx;
   }
 
-  // Test/debug hook: lets automated checks read the sound state without
-  // hearing anything (headless browsers have no speakers). soundLog is
-  // every sound the app tried to play, in order.
-  var soundLog = [];
+  // Test/debug hook: lets automated checks read the music state without
+  // hearing anything (headless browsers have no speakers). musicLog is
+  // every music event (start, stop, eerie note), in order.
+  var musicLog = [];
   window.__freshTrack = {
     audioState: function () {
       var ctx = getAudioCtx();
       return ctx ? ctx.state : 'none';
     },
-    soundsOn: function () { return soundsEnabled; },
-    lastSound: function () { return soundLog.length ? soundLog[soundLog.length - 1] : null; },
-    soundLog: function () { return soundLog.slice(); }
+    musicOn: function () { return musicEnabled; },
+    musicStarted: function () { return !!musicNodes; },
+    musicGainValue: function () { return musicNodes ? musicNodes.master.gain.value : 0; },
+    musicLog: function () { return musicLog.slice(); }
   };
 
-  function noteSound(name) {
-    soundLog.push({ name: name, at: Date.now() });
-    if (soundLog.length > 50) soundLog = soundLog.slice(-50);
+  function noteMusic(name) {
+    musicLog.push({ name: name, at: Date.now() });
+    if (musicLog.length > 50) musicLog = musicLog.slice(-50);
   }
 
   // Creates the AudioContext on demand and resumes it when the browser
   // suspended it. Returns a promise for a running context, or null when
-  // Web Audio is unavailable. Sounds must wait for this promise:
-  // scheduling notes on a suspended context drops them silently, which is
-  // why sounds seemed absent even when the toggle was on.
+  // Web Audio is unavailable. Music nodes must wait for this promise:
+  // starting them on a suspended context stays silent until it resumes.
   function ensureAudio() {
     var ctx = getAudioCtx();
     if (!ctx) return Promise.resolve(null);
@@ -829,85 +829,131 @@
     }
   }
 
-  // One short oscillator note. opts: type, freq, freqEnd, delay, dur, vol.
-  function tone(ctx, opts) {
+  // ===== Background Music (Phase 23) =====
+  // Horror ambient loop, Web Audio only, no audio files. A low detuned
+  // drone through a slow-breathing lowpass filter, a faint wind bed, and
+  // a random eerie note every few seconds. Everything runs through one
+  // quiet master gain (0.05) so the music stays under the UI.
+  var EERIE_NOTES = [220, 233.08, 261.63, 311.13, 329.63, 415.30];
+
+  // One soft music note through the music master gain. opts: freq,
+  // freqEnd, delay, dur, vol, attack.
+  function musicTone(ctx, opts) {
+    if (!musicNodes) return;
     var start = ctx.currentTime + (opts.delay || 0);
+    var dur = opts.dur || 2;
     var osc = ctx.createOscillator();
     var gain = ctx.createGain();
     osc.type = opts.type || 'sine';
     osc.frequency.setValueAtTime(opts.freq, start);
-    if (opts.freqEnd) osc.frequency.exponentialRampToValueAtTime(opts.freqEnd, start + (opts.dur || 0.2));
+    if (opts.freqEnd) osc.frequency.exponentialRampToValueAtTime(opts.freqEnd, start + dur);
     gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(opts.vol || 0.2, start + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + (opts.dur || 0.2));
-    osc.connect(gain).connect(ctx.destination);
+    gain.gain.exponentialRampToValueAtTime(opts.vol || 0.035, start + (opts.attack || 0.4));
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    osc.connect(gain);
+    gain.connect(musicNodes.master);
     osc.start(start);
-    osc.stop(start + (opts.dur || 0.2) + 0.05);
+    osc.stop(start + dur + 0.05);
   }
 
-  // Short creak, played when a danger item is added.
-  function playCreak() {
-    if (!soundsEnabled) return;
-    noteSound('creak');
+  // Schedules the next random eerie note a few seconds out, then chains.
+  function scheduleEerieNote() {
+    if (!musicNodes) return;
+    musicNodes.timer = setTimeout(function () {
+      if (!musicNodes || !musicEnabled) return;
+      var ctx = musicNodes.ctx;
+      var base = EERIE_NOTES[Math.floor(Math.random() * EERIE_NOTES.length)];
+      musicTone(ctx, { freq: base, dur: 1.8 + Math.random(), vol: 0.03 + Math.random() * 0.015 });
+      if (Math.random() < 0.35) {
+        musicTone(ctx, { freq: base * 1.059, delay: 0.25, dur: 2.2, vol: 0.025 });
+      }
+      noteMusic('music-note');
+      scheduleEerieNote();
+    }, 4000 + Math.random() * 5000);
+  }
+
+  // Builds the music graph once and starts the loop. Safe to call twice.
+  function startMusic() {
+    if (!musicEnabled || musicNodes) return;
     ensureAudio().then(function (ctx) {
-      if (!ctx) return;
-      tone(ctx, { type: 'sawtooth', freq: 190, freqEnd: 70, dur: 0.36, vol: 0.22 });
+      if (!ctx || !musicEnabled || musicNodes) return;
+      var master = ctx.createGain();
+      master.gain.value = 0.05;
+      master.connect(ctx.destination);
+
+      var filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 240;
+      filter.Q.value = 0.7;
+      filter.connect(master);
+
+      var drone1 = ctx.createOscillator();
+      drone1.type = 'sine';
+      drone1.frequency.value = 55;
+      var drone2 = ctx.createOscillator();
+      drone2.type = 'triangle';
+      drone2.frequency.value = 55.5;
+      var d1g = ctx.createGain(); d1g.gain.value = 0.5;
+      var d2g = ctx.createGain(); d2g.gain.value = 0.4;
+      drone1.connect(d1g); d1g.connect(filter);
+      drone2.connect(d2g); d2g.connect(filter);
+
+      var lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = 0.05;
+      var lfoGain = ctx.createGain();
+      lfoGain.gain.value = 90;
+      lfo.connect(lfoGain);
+      lfoGain.connect(filter.frequency);
+
+      var len = ctx.sampleRate * 2;
+      var buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      var data = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      var wind = ctx.createBufferSource();
+      wind.buffer = buf;
+      wind.loop = true;
+      var band = ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = 420;
+      band.Q.value = 0.5;
+      var windGain = ctx.createGain();
+      windGain.gain.value = 0.012;
+      wind.connect(band); band.connect(windGain); windGain.connect(master);
+      var windLfo = ctx.createOscillator();
+      windLfo.type = 'sine';
+      windLfo.frequency.value = 0.07;
+      var windLfoGain = ctx.createGain();
+      windLfoGain.gain.value = 0.008;
+      windLfo.connect(windLfoGain);
+      windLfoGain.connect(windGain.gain);
+
+      drone1.start(); drone2.start(); lfo.start(); wind.start(); windLfo.start();
+      musicNodes = { ctx: ctx, master: master, timer: null,
+        stoppables: [drone1, drone2, lfo, wind, windLfo] };
+      noteMusic('music-start');
+      scheduleEerieNote();
     });
   }
 
-  // Bright chime, played when an item is rescued.
-  function playChime() {
-    if (!soundsEnabled) return;
-    noteSound('chime');
-    ensureAudio().then(function (ctx) {
-      if (!ctx) return;
-      tone(ctx, { type: 'sine', freq: 880, dur: 0.3, vol: 0.2 });
-      tone(ctx, { type: 'sine', freq: 1320, delay: 0.08, dur: 0.3, vol: 0.2 });
-    });
+  // Stops the music graph and frees its nodes.
+  function stopMusic() {
+    if (!musicNodes) return;
+    clearTimeout(musicNodes.timer);
+    for (var i = 0; i < musicNodes.stoppables.length; i++) {
+      try { musicNodes.stoppables[i].stop(); } catch (e) { /* already stopped */ }
+    }
+    try { musicNodes.master.disconnect(); } catch (e) { /* already gone */ }
+    musicNodes = null;
+    noteMusic('music-stop');
   }
 
-  // Low thud, played when switching tabs.
-  function playTab() {
-    if (!soundsEnabled) return;
-    noteSound('tab');
-    ensureAudio().then(function (ctx) {
-      if (!ctx) return;
-      tone(ctx, { type: 'sine', freq: 160, freqEnd: 90, dur: 0.12, vol: 0.15 });
-    });
-  }
-
-  // Soft pop, played when a non-danger item is added.
-  function playAdd() {
-    if (!soundsEnabled) return;
-    noteSound('add');
-    ensureAudio().then(function (ctx) {
-      if (!ctx) return;
-      tone(ctx, { type: 'triangle', freq: 520, freqEnd: 660, dur: 0.1, vol: 0.15 });
-    });
-  }
-
-  // Eerie shimmer, played when a secret monster is unlocked.
-  function playSecret() {
-    if (!soundsEnabled) return;
-    noteSound('secret');
-    ensureAudio().then(function (ctx) {
-      if (!ctx) return;
-      tone(ctx, { type: 'sine', freq: 660, dur: 0.5, vol: 0.12 });
-      tone(ctx, { type: 'sine', freq: 622, delay: 0.09, dur: 0.5, vol: 0.12 });
-      tone(ctx, { type: 'sine', freq: 554, delay: 0.18, dur: 0.6, vol: 0.12 });
-    });
-  }
-
-  // Test sound: a creak followed by a chime. Ignores the toggle on
-  // purpose, so the Test Sound button always previews the sound.
-  function playTestSound() {
-    noteSound('test');
-    ensureAudio().then(function (ctx) {
-      if (!ctx) return;
-      tone(ctx, { type: 'sawtooth', freq: 190, freqEnd: 70, dur: 0.36, vol: 0.22 });
-      tone(ctx, { type: 'sine', freq: 880, delay: 0.45, dur: 0.3, vol: 0.2 });
-      tone(ctx, { type: 'sine', freq: 1320, delay: 0.53, dur: 0.3, vol: 0.2 });
-    });
+  // Flips the music preference and starts or stops the loop.
+  function setMusicEnabled(on) {
+    musicEnabled = on;
+    saveMusicEnabled();
+    if (on) startMusic();
+    else stopMusic();
   }
 
   // ===== Urgency =====
@@ -1020,7 +1066,6 @@
     opts = opts || {};
     activeTab = id;
     render();
-    playTab();
     if (opts.updateHash !== false) {
       try { history.replaceState(null, '', '#' + id); } catch (e) { /* file URL or old browser */ }
     }
@@ -1046,10 +1091,16 @@
   }
 
   function renderHeader() {
+    var musicLabel = musicEnabled ? '\uD83C\uDFB5 Music: On' : '\uD83C\uDFB5 Music: Off';
     return '' +
       '<header class="header">' +
         '<h1 class="app-title">FreshTrack</h1>' +
         '<p class="subtitle">Save them before they rot.</p>' +
+        '<div class="audio-bar">' +
+          '<button type="button" class="ctrl-btn audio-btn ctrl-music" data-action="toggle-music" aria-pressed="' + musicEnabled + '">' +
+            musicLabel +
+          '</button>' +
+        '</div>' +
       '</header>';
   }
 
@@ -1497,7 +1548,7 @@
       '<footer class="footer">' +
         '<p>Kiroween 2026 \u2014 Costume Contest</p>' +
         '<p class="footer-flavor">Don\u2019t let the monsters win. \uD83C\uDF83</p>' +
-        '<p class="footer-version">FreshTrack v22.1 (sounds on by default)</p>' +
+        '<p class="footer-version">FreshTrack v23.1 (music on by default)</p>' +
       '</footer>';
   }
 
@@ -1540,9 +1591,6 @@
       reminderLabel = '\uD83D\uDD14 Enable Reminders';
     }
 
-    var soundsLabel = soundsEnabled ? '\uD83D\uDD0A Sounds: On' : '\uD83D\uDD0A Sounds: Off';
-    var soundsState = soundsEnabled ? 'on' : 'off';
-
     var nightLabel = nightPref === 'on' ? '\uD83C\uDF19 Night: On'
       : nightPref === 'off' ? '\uD83C\uDF19 Night: Off' : '\uD83C\uDF19 Night: Auto';
 
@@ -1557,12 +1605,6 @@
         '<button type="button" class="ctrl-btn ctrl-reminder' + (reminderDisabled ? ' disabled' : '') +
           '" data-action="enable-reminders"' + (reminderDisabled ? ' disabled aria-disabled="true"' : '') + '>' +
           reminderLabel +
-        '</button>' +
-        '<button type="button" class="ctrl-btn ctrl-sounds" data-action="toggle-sounds" aria-pressed="' + soundsEnabled + '">' +
-          soundsLabel +
-        '</button>' +
-        '<button type="button" class="ctrl-btn ctrl-test-sound" data-action="test-sound" title="Play a test sound">' +
-          '\u266A Test Sound' +
         '</button>' +
         '<button type="button" class="ctrl-btn ctrl-night" data-action="cycle-night" aria-pressed="' + nightActive() + '">' +
           nightLabel +
@@ -1844,13 +1886,7 @@
     if (photo) item.photo = photo;
     items.push(item);
     saveItems();
-    // Spooky Sounds: creak when a danger item joins the fridge.
     var u = getUrgency(item);
-    if (u.level === 'danger') {
-      playCreak();
-    } else {
-      playAdd();
-    }
     announce(item.name + ' added to the fridge. ' + getDaysText(u.daysRemaining) + '.');
     render();
   }
@@ -1892,7 +1928,6 @@
     incrementSouls();
     recordRescueDay();
     saveItems();
-    playChime();   // Spooky Sounds: chime on rescue
     if (item) announce(item.name + ' rescued. One more soul saved.');
     render();
   }
@@ -2248,19 +2283,11 @@
       e.preventDefault();
       handleAiRecipe(target.getAttribute('data-id'), target.getAttribute('data-name'));
 
-    } else if (action === 'toggle-sounds') {
+    } else if (action === 'toggle-music') {
       e.preventDefault();
-      soundsEnabled = !soundsEnabled;
-      saveSoundsEnabled();
+      setMusicEnabled(!musicEnabled);
       render();
-      // Play a confirmation sound right away, so turning sounds on is
-      // heard immediately instead of staying silent until the next event.
-      if (soundsEnabled) playTestSound();
-
-    } else if (action === 'test-sound') {
-      e.preventDefault();
-      playTestSound();
-      announce('Playing a test sound.');
+      announce(musicEnabled ? 'Background music on.' : 'Background music off.');
 
     } else if (action === 'cycle-night') {
       e.preventDefault();
@@ -2640,7 +2667,7 @@
       secretCaptured[SECRET_KEYS[s]] = !!codex.secrets[SECRET_KEYS[s]];
     }
     streakState = loadStreak();
-    soundsEnabled = loadSoundsEnabled();
+    musicEnabled = loadMusicEnabled();
     nightPref = loadNightPref();
     syncState = loadSync();
     applyNightMode();
@@ -2662,13 +2689,13 @@
     // Global keyboard handling for modal (Escape + focus trap)
     document.addEventListener('keydown', handleModalKeydown);
 
-    // Prime the audio engine on the first user gesture, so the first
-    // rescue or tab switch already has a running AudioContext.
+    // Prime the audio engine on the first user gesture: browsers block
+    // sound before any interaction, so the music starts here instead.
     var primedAudio = false;
     function primeAudio() {
       if (primedAudio) return;
       primedAudio = true;
-      if (soundsEnabled) ensureAudio();
+      if (musicEnabled) startMusic();
     }
     document.addEventListener('pointerdown', primeAudio, { once: true });
     document.addEventListener('keydown', primeAudio, { once: true });
@@ -2676,11 +2703,18 @@
     // Countdown refresh: check every minute for day change
     setInterval(checkDayChange, 60000);
 
-    // Also re-check when tab regains visibility
+    // Also re-check when tab regains visibility; pause the music while
+    // the tab is hidden to save battery, resume it on return.
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden) {
         checkDayChange();
       }
+      var ctx = getAudioCtx();
+      if (!ctx) return;
+      try {
+        if (document.hidden) ctx.suspend();
+        else ctx.resume();
+      } catch (e) { /* audio unavailable */ }
     });
 
     // Deep-link hash changes (back/forward, pasted links) switch tabs.
