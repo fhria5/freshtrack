@@ -71,7 +71,11 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    category filters, AI recipes plus Cook Tonight via the Gemini proxy
    Worker, Kiro steering docs, and a working Kiro hook; the final v2
    implementation was completed directly against the same spec when the
-   Kiro CLI hit its monthly plan limit mid-build.
+   Kiro CLI hit its monthly plan limit mid-build. Phase 18 (4 secret
+   Codex monsters) and Phase 19 (polish audit: AA contrast fixes, a
+   stored-XSS fix for item photos, small-screen layout fixes) were
+   likewise completed directly against the spec, since the Kiro plan
+   credits stayed exhausted.
 3. **Steering** - `.kiro/steering/` holds `product.md`, `tech.md`, and
    `structure.md`, describing the app as it actually is: vanilla JS, the
    localStorage keys, the Codex migration, the palette tokens, the 44px
@@ -86,7 +90,10 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    integration tests (34/34) were run during the build; the finished app
    was checked in a real browser on desktop and mobile viewports, including
    the v2 flows: add item, AI Recipe fallback, rescue, Codex XP, streak,
-   night mode, and photo.
+   night mode, and photo. Phase 19 added a 55-check polish audit
+   (contrast, tap targets, overflow, malformed storage, AI failure modes,
+   share flows) and the v2 (27 checks) and Codex secret (18 checks)
+   suites pass alongside it.
 
 The `.kiro` directory in this repo is the evidence of that workflow.
 
