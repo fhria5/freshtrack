@@ -9,7 +9,7 @@
 
 /* ===== Design Tokens ===== */
 :root {
-  --bg-deep: #0d0a14;
+  --bg-deep: #08060f;
   --bg-panel: #1a1424;
   --accent-fresh: #6abf69;
   --accent-wary: #e0a44a;
@@ -17,6 +17,9 @@
   --accent-danger-text: #ef7a7a; /* readable danger text on dark bg (accent-danger alone is too dark) */
   --accent-rotten: #8b1a1a;
   --accent-rotten-text: #e06565;   /* readable text on dark bg (accent-rotten alone is too dark) */
+  --accent-blood: #c1121f;         /* decorative blood red: glows and dividers only, never body text */
+  --accent-blood-glow: rgba(193, 18, 31, 0.55);
+  --mist: rgba(138, 127, 160, 0.08);
   --text-primary: #e8e0f0;
   --text-muted: #8a7fa0;
   --border-spooky: #3a2d4f;
@@ -91,6 +94,26 @@ body {
   color-scheme: dark;
 }
 
+/* A thin layer of mist drifts over the whole page, day and night.
+   pointer-events off, so taps pass through; opacity stays low so text
+   contrast is untouched. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 22% at 15% 85%, var(--mist), transparent 70%),
+    radial-gradient(ellipse 45% 18% at 85% 15%, var(--mist), transparent 70%);
+  animation: mistDrift 36s ease-in-out infinite alternate;
+}
+
+@keyframes mistDrift {
+  from { transform: translateX(-2%); opacity: 0.7; }
+  to { transform: translateX(2%); opacity: 1; }
+}
+
 #app {
   max-width: var(--max-width);
   margin: 0 auto;
@@ -114,8 +137,29 @@ h1, h2, h3, h4 {
   font-size: 3rem;
   color: var(--accent-danger);
   text-align: center;
-  text-shadow: 0 0 20px rgba(214, 69, 69, 0.4);
+  text-shadow: 0 0 8px rgba(193, 18, 31, 0.65), 0 0 24px rgba(214, 69, 69, 0.45);
   margin-bottom: 0.25rem;
+  animation: titleFlicker 6s linear infinite;
+}
+
+/* A thin blood-red divider under the header. */
+.header::after {
+  content: "";
+  display: block;
+  height: 2px;
+  margin: 0.25rem auto 0;
+  max-width: 280px;
+  background: linear-gradient(90deg, transparent, var(--accent-blood), transparent);
+  box-shadow: 0 0 12px var(--accent-blood-glow);
+}
+
+@keyframes titleFlicker {
+  0%, 100% { opacity: 1; }
+  90% { opacity: 1; }
+  91% { opacity: 0.75; }
+  92% { opacity: 1; }
+  95% { opacity: 0.85; }
+  96% { opacity: 1; }
 }
 
 .subtitle {
@@ -301,7 +345,7 @@ select option {
   width: 100%;
   min-height: var(--tap-target);
   padding: 0.75rem;
-  background: linear-gradient(135deg, #c93a3a, var(--accent-rotten));
+  background: linear-gradient(135deg, #d21f2b, var(--accent-rotten));
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -314,7 +358,7 @@ select option {
 
 .btn-submit:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(214, 69, 69, 0.4);
+  box-shadow: 0 4px 15px rgba(193, 18, 31, 0.55);
 }
 
 .btn-submit:active {
@@ -378,7 +422,7 @@ select option {
 
 .card[data-urgency="danger"] {
   border-left-color: var(--accent-danger);
-  box-shadow: 0 0 15px rgba(214, 69, 69, 0.25);
+  box-shadow: 0 0 18px rgba(193, 18, 31, 0.4);
   /* Shake only 3 times on mount: an infinite shake keeps the card (and its
      buttons) moving forever, so taps feel unstable and the buttons never
      settle for keyboard/automated use. */
@@ -388,8 +432,14 @@ select option {
 .card[data-urgency="rotten"] {
   border-left-color: var(--accent-rotten);
   background-color: rgba(139, 26, 26, 0.08);
-  box-shadow: 0 0 20px rgba(139, 26, 26, 0.3);
+  box-shadow: 0 0 26px rgba(193, 18, 31, 0.5), inset 0 0 30px rgba(139, 26, 26, 0.25);
   animation: shake 0.35s ease-in-out 3, pulse 1.5s ease-in-out infinite;
+}
+
+/* Danger and rotten monsters glow red, like eyes in the dark. */
+.card[data-urgency="danger"] .monster,
+.card[data-urgency="rotten"] .monster {
+  filter: drop-shadow(0 0 6px rgba(193, 18, 31, 0.85));
 }
 
 .card-row {
@@ -517,6 +567,18 @@ select option {
 .btn-rescue:focus-visible {
   background-color: var(--accent-fresh);
   color: var(--bg-deep);
+  box-shadow: 0 0 16px rgba(106, 191, 105, 0.55);
+}
+
+/* On danger and rotten cards the rescue button pulses, begging to be tapped. */
+.card[data-urgency="danger"] .btn-rescue,
+.card[data-urgency="rotten"] .btn-rescue {
+  animation: rescuePulse 1.8s ease-in-out infinite;
+}
+
+@keyframes rescuePulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(106, 191, 105, 0.25); }
+  50% { box-shadow: 0 0 16px rgba(106, 191, 105, 0.6); }
 }
 
 .btn-delete {
@@ -998,6 +1060,20 @@ select option {
   opacity: 0.6;
 }
 
+/* Captured monsters keep a faint amber glow; captured secrets pulse. */
+.codex-card[data-state="captured"] {
+  box-shadow: 0 0 12px rgba(224, 164, 74, 0.18);
+}
+
+.codex-card.secret[data-state="captured"] {
+  animation: secretPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes secretPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(224, 164, 74, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(224, 164, 74, 0.5); }
+}
+
 .codex-monster {
   font-size: 2rem;
   line-height: 1;
@@ -1431,8 +1507,9 @@ body.night-mode .night-eyes {
     top: 0;
     z-index: 800;
     gap: 0.25rem;
-    background-color: var(--bg-deep);
+    background: linear-gradient(180deg, #0d0a14, #08060f);
     border-bottom: 2px solid var(--border-spooky);
+    box-shadow: 0 2px 14px rgba(193, 18, 31, 0.25);
     padding: 0.5rem 0;
     margin-bottom: 1.5rem;
   }
@@ -1460,7 +1537,8 @@ body.night-mode .night-eyes {
 
   .tab-btn[aria-selected="true"] {
     color: var(--accent-wary);
-    border-bottom-color: var(--accent-wary);
+    border-bottom-color: var(--accent-blood);
+    text-shadow: 0 0 12px rgba(224, 164, 74, 0.45);
   }
 }
 
@@ -1531,7 +1609,7 @@ body.night-mode .night-eyes {
 }
 
 .nav-item.is-active .nav-icon {
-  text-shadow: 0 0 10px rgba(224, 164, 74, 0.5);
+  text-shadow: 0 0 10px rgba(193, 18, 31, 0.7);
 }
 
 .nav-item.is-active::before {
@@ -1543,8 +1621,8 @@ body.night-mode .night-eyes {
   width: 60%;
   height: 3px;
   border-radius: 0 0 3px 3px;
-  background-color: var(--accent-wary);
-  box-shadow: 0 0 8px rgba(224, 164, 74, 0.6);
+  background-color: var(--accent-blood);
+  box-shadow: 0 0 8px var(--accent-blood-glow);
 }
 
 .nav-item:active {
@@ -1805,4 +1883,15 @@ body.night-mode .night-eyes {
 .btn-household-leave:focus-visible {
   background-color: var(--accent-rotten-text);
   color: #fff;
+}
+
+/* ===== Horror Atmosphere (Phase 22) ===== */
+
+/* A faint inner vignette on every panel, like lamplight in a dark room. */
+.form-panel,
+.dashboard-section,
+.codex-section,
+.household-section,
+.share-section {
+  box-shadow: inset 0 0 42px rgba(0, 0, 0, 0.35), 0 4px 20px rgba(0, 0, 0, 0.5);
 }
