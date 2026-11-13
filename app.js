@@ -19,6 +19,12 @@
   var streakState = { count: 0, lastDate: null }; // consecutive rescue days
   var soundsEnabled = false;        // Spooky Sounds toggle (default OFF)
   var nightPref = 'auto';           // Night Mode: 'auto' | 'on' | 'off'
+  var recipeFilter = 'All';         // recipe category filter: 'All' | 'Breakfast' | 'Lunch' | 'Snack' | 'Dinner'
+  var aiCache = {};                 // AI recipes in memory only, keyed by item name (lowercase)
+  var aiLoading = {};               // item names with an AI request in flight
+  var aiFallback = {};              // item names whose last AI attempt fell back to pantry recipes
+  var aiOpen = {};                  // item names with the AI recipe expanded
+  var tonightLoading = false;       // Cook Tonight request in flight
   var audioCtx = null;              // lazily-created Web Audio context
   var navObserver = null;           // IntersectionObserver for bottom-nav active state
 
@@ -30,6 +36,8 @@
   var SOUNDS_KEY = 'freshtrack.sounds';
   var STREAK_KEY = 'freshtrack.streak';
   var NIGHT_KEY = 'freshtrack.nightmode';
+  var AI_API_URL = 'https://grokingstore.my.id/freshtrack-ai/api/recipe';
+  var AI_TIMEOUT_MS = 15000;        // AI request timeout (ms)
   var MAX_LEVEL = 5;                // monster level cap
   var RESCUES_PER_LEVEL = 3;        // rescues needed per level-up
   var MAX_PHOTOS = 20;              // cap stored item photos (localStorage budget)
@@ -622,6 +630,7 @@
             '</div>' +
           '</div>' +
           '<div class="card-actions">' +
+            '<button class="btn-ai" data-action="ai-recipe" data-id="' + escapeHtml(item.id) + '" data-name="' + escapeHtml(item.name) + '" aria-label="Get an AI recipe for ' + escapeHtml(item.name) + '">\u2728</button>' +
             '<button class="btn-rescue" data-action="rescue" data-id="' + escapeHtml(item.id) + '" data-name="' + escapeHtml(item.name) + '" aria-label="Rescue ' + escapeHtml(item.name) + '">\u{1F6E1}\uFE0F</button>' +
             '<button class="btn-delete" data-action="delete" data-id="' + escapeHtml(item.id) + '" data-name="' + escapeHtml(item.name) + '" aria-label="Delete ' + escapeHtml(item.name) + '">\u2715</button>' +
           '</div>' +
@@ -631,8 +640,55 @@
       html += renderRecipeSuggestions(item);
     }
 
+    html += '<div class="ai-section" data-ai-for="' + escapeHtml(item.id) + '">' + renderAiSectionInner(item) + '</div>';
+
     html += '</article>';
     return html;
+  }
+
+  function recipeEntryHtml(recipe) {
+    var ingredientList = (recipe.ingredients || []).map(function (ing) {
+      return '<li>' + escapeHtml(ing) + '</li>';
+    }).join('');
+    var instructionList = (recipe.instructions || []).map(function (step) {
+      return '<li>' + escapeHtml(step) + '</li>';
+    }).join('');
+
+    return '' +
+      '<div class="recipe-entry">' +
+        '<button class="recipe-name" data-action="expand-recipe" aria-expanded="false">' +
+          escapeHtml(recipe.name) +
+        '</button>' +
+        '<div class="recipe-details" hidden>' +
+          '<p class="recipe-desc">' + escapeHtml(recipe.description) + '</p>' +
+          '<h4 class="recipe-subtitle">Ingredients</h4>' +
+          '<ul class="recipe-ingredients">' + ingredientList + '</ul>' +
+          '<h4 class="recipe-subtitle">Instructions</h4>' +
+          '<ol class="recipe-instructions">' + instructionList + '</ol>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function renderRecipeListInner(item) {
+    var recipes = matchRecipes(item);
+    var filtered = recipeFilter === 'All'
+      ? recipes
+      : recipes.filter(function (r) { return r.category === recipeFilter; });
+    var chips = ['All', 'Breakfast', 'Lunch', 'Snack', 'Dinner'].map(function (cat) {
+      return '<button type="button" class="filter-chip' + (recipeFilter === cat ? ' active' : '') +
+        '" data-action="filter-recipes" data-filter="' + cat + '" aria-pressed="' + (recipeFilter === cat) + '">' + cat + '</button>';
+    }).join('');
+
+    var listHtml;
+    if (recipes.length === 0) {
+      listHtml = '<p class="no-recipes">No rescue recipes found for this item. Time to improvise... or bid farewell.</p>';
+    } else if (filtered.length === 0) {
+      listHtml = '<p class="no-recipes">No recipes in this category for this item. Try another filter.</p>';
+    } else {
+      listHtml = filtered.map(recipeEntryHtml).join('');
+    }
+
+    return '<div class="filter-row" role="group" aria-label="Filter recipes by meal">' + chips + '</div>' + listHtml;
   }
 
   function renderRecipeSuggestions(item) {
@@ -642,43 +698,257 @@
       ? '\uD83C\uDF73 Rescue Recipes (' + count + ')'
       : '\uD83C\uDF73 Rescue Recipes';
 
-    var content;
-    if (recipes.length === 0) {
-      content = '<p class="no-recipes">No rescue recipes found for this item. Time to improvise... or bid farewell.</p>';
-    } else {
-      content = recipes.map(function (recipe) {
-        var ingredientList = (recipe.ingredients || []).map(function (ing) {
-          return '<li>' + escapeHtml(ing) + '</li>';
-        }).join('');
-        var instructionList = (recipe.instructions || []).map(function (step) {
-          return '<li>' + escapeHtml(step) + '</li>';
-        }).join('');
-
-        return '' +
-          '<div class="recipe-entry">' +
-            '<button class="recipe-name" data-action="expand-recipe" aria-expanded="false">' +
-              escapeHtml(recipe.name) +
-            '</button>' +
-            '<div class="recipe-details" hidden>' +
-              '<p class="recipe-desc">' + escapeHtml(recipe.description) + '</p>' +
-              '<h4 class="recipe-subtitle">Ingredients</h4>' +
-              '<ul class="recipe-ingredients">' + ingredientList + '</ul>' +
-              '<h4 class="recipe-subtitle">Instructions</h4>' +
-              '<ol class="recipe-instructions">' + instructionList + '</ol>' +
-            '</div>' +
-          '</div>';
-      }).join('');
-    }
-
     return '' +
       '<div class="rescue-section">' +
         '<button class="rescue-toggle" data-action="toggle-recipes" data-id="' + escapeHtml(item.id) + '" aria-expanded="false">' +
           toggleText +
         '</button>' +
         '<div class="recipe-list" hidden>' +
-          content +
+          renderRecipeListInner(item) +
         '</div>' +
       '</div>';
+  }
+
+  // ===== AI Recipes (Worker + Gemini, silent fallback) =====
+
+  function aiKey(name) {
+    return String(name || '').toLowerCase();
+  }
+
+  function findItemById(id) {
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].id === id) return items[i];
+    }
+    return null;
+  }
+
+  // POSTs ingredients to the FreshTrack AI Worker and returns the parsed
+  // recipe, or null on ANY failure. Callers never see a raw error.
+  function fetchAiRecipe(ingredients, mode) {
+    var names = [];
+    for (var i = 0; i < ingredients.length; i++) {
+      if (ingredients[i]) names.push(String(ingredients[i]));
+    }
+    if (names.length === 0) return Promise.resolve(null);
+
+    var ctrl = null;
+    var timer = null;
+    try {
+      ctrl = new AbortController();
+      timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, AI_TIMEOUT_MS);
+    } catch (e) {
+      ctrl = null;
+    }
+
+    var options = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ingredients: names.slice(0, 12), mode: mode })
+    };
+    if (ctrl) options.signal = ctrl.signal;
+
+    return fetch(AI_API_URL, options).then(function (resp) {
+      if (!resp || !resp.ok) return null;
+      return resp.json().then(function (data) {
+        if (!data || !data.recipe) return null;
+        var r = data.recipe;
+        if (typeof r.title !== 'string' || !r.title) return null;
+        if (!Array.isArray(r.ingredients) || r.ingredients.length === 0) return null;
+        if (!Array.isArray(r.steps) || r.steps.length === 0) return null;
+        if (typeof r.timeMinutes !== 'number') return null;
+        return { title: r.title, ingredients: r.ingredients, steps: r.steps, timeMinutes: r.timeMinutes };
+      }, function () { return null; });
+    }).catch(function () { return null; }).then(function (result) {
+      if (timer) clearTimeout(timer);
+      return result;
+    });
+  }
+
+  function renderAiRecipeHtml(recipe) {
+    var ingredientList = (recipe.ingredients || []).map(function (ing) {
+      return '<li>' + escapeHtml(ing) + '</li>';
+    }).join('');
+    var stepList = (recipe.steps || []).map(function (step) {
+      return '<li>' + escapeHtml(step) + '</li>';
+    }).join('');
+
+    return '' +
+      '<div class="ai-recipe">' +
+        '<span class="ai-badge">AI-generated</span>' +
+        '<h4 class="ai-title">' + escapeHtml(recipe.title) + '</h4>' +
+        '<p class="ai-time">' + escapeHtml(String(recipe.timeMinutes)) + ' min</p>' +
+        '<h5 class="recipe-subtitle">Ingredients</h5>' +
+        '<ul class="recipe-ingredients">' + ingredientList + '</ul>' +
+        '<h5 class="recipe-subtitle">Steps</h5>' +
+        '<ol class="recipe-instructions">' + stepList + '</ol>' +
+      '</div>';
+  }
+
+  function renderAiSectionInner(item) {
+    var key = aiKey(item.name);
+    if (aiLoading[key]) {
+      return '<div class="ai-loading" role="status"><span class="ai-spinner" aria-hidden="true"></span> Summoning a recipe...</div>';
+    }
+    var cached = aiCache[key];
+    if (cached) {
+      var open = !!aiOpen[key];
+      var html = '' +
+        '<button class="ai-toggle" data-action="ai-recipe" data-id="' + escapeHtml(item.id) + '" data-name="' + escapeHtml(item.name) + '" aria-expanded="' + open + '">' +
+          '\u2728 AI Recipe' +
+        '</button>';
+      if (open) html += renderAiRecipeHtml(cached);
+      return html;
+    }
+    if (aiFallback[key]) {
+      var recipes = matchRecipes(item);
+      var listHtml = recipes.length === 0
+        ? '<p class="no-recipes">No rescue recipes found for this item. Time to improvise... or bid farewell.</p>'
+        : recipes.map(recipeEntryHtml).join('');
+      return '' +
+        '<button class="ai-toggle" data-action="ai-recipe" data-id="' + escapeHtml(item.id) + '" data-name="' + escapeHtml(item.name) + '" aria-expanded="false">' +
+          '\u2728 AI Recipe' +
+        '</button>' +
+        '<p class="ai-fallback-note">AI is resting. Showing pantry recipes instead.</p>' +
+        '<div class="ai-fallback-list">' + listHtml + '</div>';
+    }
+    return '';
+  }
+
+  function updateAiSection(itemId, itemName) {
+    var item = findItemById(itemId);
+    if (!item) return;
+    var section = document.querySelector('.ai-section[data-ai-for="' + itemId + '"]');
+    if (section) section.innerHTML = renderAiSectionInner(item);
+  }
+
+  function handleAiRecipe(itemId, itemName) {
+    var key = aiKey(itemName);
+    if (aiLoading[key]) return;
+    var cached = aiCache[key];
+    if (cached) {
+      aiOpen[key] = !aiOpen[key];
+      updateAiSection(itemId, itemName);
+      return;
+    }
+    var item = findItemById(itemId);
+    if (!item) return;
+    aiLoading[key] = true;
+    aiFallback[key] = false;
+    updateAiSection(itemId, itemName);
+    announce('Summoning a recipe for ' + itemName + '...');
+    fetchAiRecipe([itemName], 'single').then(function (recipe) {
+      aiLoading[key] = false;
+      if (recipe) {
+        aiCache[key] = recipe;
+        aiOpen[key] = true;
+        announce('AI recipe ready for ' + itemName + '.');
+      } else {
+        aiFallback[key] = true;
+        announce('AI is resting. Showing pantry recipes for ' + itemName + ' instead.');
+      }
+      updateAiSection(itemId, itemName);
+    });
+  }
+
+  // ===== Cook Tonight =====
+
+  function getUrgentItems() {
+    var urgent = [];
+    for (var i = 0; i < items.length; i++) {
+      var u = getUrgency(items[i]);
+      if (u.level === 'danger' || u.level === 'rotten') urgent.push(items[i]);
+    }
+    return urgent;
+  }
+
+  function rankTonightFallback(urgent) {
+    var all = getRecipes();
+    var scored = [];
+    for (var i = 0; i < all.length; i++) {
+      var count = 0;
+      for (var j = 0; j < urgent.length; j++) {
+        if (matchRecipes(urgent[j]).indexOf(all[i]) !== -1) count++;
+      }
+      if (count > 0) scored.push({ recipe: all[i], count: count });
+    }
+    scored.sort(function (a, b) { return b.count - a.count; });
+    return scored.slice(0, 3).map(function (s) { return s.recipe; });
+  }
+
+  function handleCookTonight() {
+    if (tonightLoading) return;
+    var urgent = getUrgentItems();
+    if (urgent.length === 0) return;
+    var names = [];
+    for (var i = 0; i < urgent.length && names.length < 12; i++) {
+      names.push(urgent[i].name);
+    }
+    tonightLoading = true;
+    render();
+    announce('Cooking up tonight\'s rescue plan...');
+    fetchAiRecipe(names, 'tonight').then(function (recipe) {
+      tonightLoading = false;
+      render();
+      if (recipe) {
+        openTonightModal(recipe, names, true);
+      } else {
+        openTonightModal(rankTonightFallback(urgent), names, false);
+      }
+    });
+  }
+
+  function openTonightModal(content, names, isAi) {
+    closeModal();
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'modal-title');
+
+    var bodyHtml;
+    if (isAi) {
+      bodyHtml = renderAiRecipeHtml(content);
+    } else if (content.length === 0) {
+      bodyHtml = '<p class="no-recipes">No pantry recipes cover tonight\'s urgent items. Time to improvise... or bid farewell.</p>';
+    } else {
+      bodyHtml = content.map(recipeEntryHtml).join('');
+    }
+    var usesLine = names.length > 0
+      ? '<p class="tonight-uses">Uses: ' + escapeHtml(names.join(', ')) + '</p>'
+      : '';
+
+    overlay.innerHTML =
+      '<div class="modal modal-tonight">' +
+        '<p class="modal-title" id="modal-title">Tonight\u2019s Rescue Plan</p>' +
+        (isAi ? '' : '<p class="ai-fallback-note">AI is resting. Showing pantry recipes instead.</p>') +
+        usesLine +
+        '<div class="tonight-body">' + bodyHtml + '</div>' +
+        '<div class="modal-buttons">' +
+          '<button class="btn-modal btn-keep" data-modal-action="close">Close</button>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+
+    var closeBtn = overlay.querySelector('[data-modal-action="close"]');
+    var focusable = overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+
+    modalState = {
+      overlay: overlay,
+      triggerEl: null,
+      onConfirm: null,
+      focusableElements: focusable,
+      firstFocusable: focusable[0],
+      lastFocusable: focusable[focusable.length - 1]
+    };
+
+    closeBtn.focus();
+    closeBtn.addEventListener('click', function () { closeModal(); });
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeModal();
+    });
   }
 
   function renderEmptyState() {
@@ -726,8 +996,14 @@
     var nightLabel = nightPref === 'on' ? '\uD83C\uDF19 Night: On'
       : nightPref === 'off' ? '\uD83C\uDF19 Night: Off' : '\uD83C\uDF19 Night: Auto';
 
+    var urgentCount = getUrgentItems().length;
+    var tonightDisabled = urgentCount === 0 || tonightLoading;
+
     return '' +
       '<div class="controls-strip" role="toolbar" aria-label="App controls">' +
+        '<button type="button" class="ctrl-btn ctrl-tonight" data-action="cook-tonight"' + (tonightDisabled ? ' disabled aria-disabled="true"' : '') + (urgentCount === 0 ? ' title="No urgent items to cook tonight"' : '') + '>' +
+          '\uD83C\uDF73 Cook Tonight' +
+        '</button>' +
         '<button type="button" class="ctrl-btn ctrl-reminder' + (reminderDisabled ? ' disabled' : '') +
           '" data-action="enable-reminders"' + (reminderDisabled ? ' disabled aria-disabled="true"' : '') + '>' +
           reminderLabel +
@@ -1323,6 +1599,22 @@
         }
       }
 
+    } else if (action === 'filter-recipes') {
+      e.preventDefault();
+      recipeFilter = target.getAttribute('data-filter') || 'All';
+      var section = target.closest('.rescue-section');
+      if (section) {
+        var card = section.closest('.card');
+        var itemId = card ? card.getAttribute('data-id') : null;
+        var filterItem = itemId ? findItemById(itemId) : null;
+        var list = section.querySelector('.recipe-list');
+        if (list && filterItem) list.innerHTML = renderRecipeListInner(filterItem);
+      }
+
+    } else if (action === 'ai-recipe') {
+      e.preventDefault();
+      handleAiRecipe(target.getAttribute('data-id'), target.getAttribute('data-name'));
+
     } else if (action === 'toggle-sounds') {
       e.preventDefault();
       soundsEnabled = !soundsEnabled;
@@ -1353,6 +1645,10 @@
     } else if (action === 'share-card') {
       e.preventDefault();
       handleShare();
+
+    } else if (action === 'cook-tonight') {
+      e.preventDefault();
+      handleCookTonight();
     }
   }
 
