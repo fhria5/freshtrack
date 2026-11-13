@@ -20,7 +20,7 @@
   var aiRecipeReady = {};   // itemId -> true once a real AI recipe arrived for that item
   var tonightPlanOpen = false; // true after a Cook Tonight plan is shown, spent by the next rescue
   var streakState = { count: 0, lastDate: null }; // consecutive rescue days
-  var soundsEnabled = false;        // Spooky Sounds toggle (default OFF)
+  var soundsEnabled = true;         // Spooky Sounds toggle (default ON since Phase 22: user asked for sound)
   var nightPref = 'auto';           // Night Mode: 'auto' | 'on' | 'off'
   var recipeFilter = 'All';         // recipe category filter: 'All' | 'Breakfast' | 'Lunch' | 'Snack' | 'Dinner'
   var aiCache = {};                 // AI recipes in memory only, keyed by item name (lowercase)
@@ -668,6 +668,7 @@
     if (!secretCaptured.hasOwnProperty(key) || secretCaptured[key]) return false;
     secretCaptured[key] = true;
     saveCodex();
+    playSecret();
     announce('Secret monster captured: ' + SECRET_MONSTERS[key].name + '!');
     return true;
   }
@@ -767,11 +768,13 @@
 
   // ===== Spooky Sounds Persistence =====
 
+  // Default ON since Phase 22 (user asked for sound). Only an explicit
+  // stored 'false' (user turned sounds off) keeps them off.
   function loadSoundsEnabled() {
     try {
-      return localStorage.getItem(SOUNDS_KEY) === 'true';
+      return localStorage.getItem(SOUNDS_KEY) !== 'false';
     } catch (e) {
-      return false;
+      return true;
     }
   }
 
@@ -791,48 +794,120 @@
     return audioCtx;
   }
 
-  // Short creak — played when a danger item is added.
-  function playCreak() {
-    if (!soundsEnabled) return;
-    var ctx = getAudioCtx();
-    if (!ctx) return;
-    if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+  // Test/debug hook: lets automated checks read the sound state without
+  // hearing anything (headless browsers have no speakers). soundLog is
+  // every sound the app tried to play, in order.
+  var soundLog = [];
+  window.__freshTrack = {
+    audioState: function () {
+      var ctx = getAudioCtx();
+      return ctx ? ctx.state : 'none';
+    },
+    soundsOn: function () { return soundsEnabled; },
+    lastSound: function () { return soundLog.length ? soundLog[soundLog.length - 1] : null; },
+    soundLog: function () { return soundLog.slice(); }
+  };
 
-    var now = ctx.currentTime;
-    var osc = ctx.createOscillator();
-    var gain = ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(190, now);
-    osc.frequency.exponentialRampToValueAtTime(70, now + 0.3);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.36);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.4);
+  function noteSound(name) {
+    soundLog.push({ name: name, at: Date.now() });
+    if (soundLog.length > 50) soundLog = soundLog.slice(-50);
   }
 
-  // Bright chime — played when an item is rescued.
+  // Creates the AudioContext on demand and resumes it when the browser
+  // suspended it. Returns a promise for a running context, or null when
+  // Web Audio is unavailable. Sounds must wait for this promise:
+  // scheduling notes on a suspended context drops them silently, which is
+  // why sounds seemed absent even when the toggle was on.
+  function ensureAudio() {
+    var ctx = getAudioCtx();
+    if (!ctx) return Promise.resolve(null);
+    if (ctx.state === 'running') return Promise.resolve(ctx);
+    try {
+      return ctx.resume().then(function () { return ctx; }).catch(function () { return null; });
+    } catch (e) {
+      return Promise.resolve(null);
+    }
+  }
+
+  // One short oscillator note. opts: type, freq, freqEnd, delay, dur, vol.
+  function tone(ctx, opts) {
+    var start = ctx.currentTime + (opts.delay || 0);
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = opts.type || 'sine';
+    osc.frequency.setValueAtTime(opts.freq, start);
+    if (opts.freqEnd) osc.frequency.exponentialRampToValueAtTime(opts.freqEnd, start + (opts.dur || 0.2));
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(opts.vol || 0.2, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + (opts.dur || 0.2));
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + (opts.dur || 0.2) + 0.05);
+  }
+
+  // Short creak, played when a danger item is added.
+  function playCreak() {
+    if (!soundsEnabled) return;
+    noteSound('creak');
+    ensureAudio().then(function (ctx) {
+      if (!ctx) return;
+      tone(ctx, { type: 'sawtooth', freq: 190, freqEnd: 70, dur: 0.36, vol: 0.22 });
+    });
+  }
+
+  // Bright chime, played when an item is rescued.
   function playChime() {
     if (!soundsEnabled) return;
-    var ctx = getAudioCtx();
-    if (!ctx) return;
-    if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+    noteSound('chime');
+    ensureAudio().then(function (ctx) {
+      if (!ctx) return;
+      tone(ctx, { type: 'sine', freq: 880, dur: 0.3, vol: 0.2 });
+      tone(ctx, { type: 'sine', freq: 1320, delay: 0.08, dur: 0.3, vol: 0.2 });
+    });
+  }
 
-    var freqs = [880, 1320];
-    for (var i = 0; i < freqs.length; i++) {
-      var start = ctx.currentTime + i * 0.08;
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freqs[i], start);
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.2, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.3);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(start);
-      osc.stop(start + 0.32);
-    }
+  // Low thud, played when switching tabs.
+  function playTab() {
+    if (!soundsEnabled) return;
+    noteSound('tab');
+    ensureAudio().then(function (ctx) {
+      if (!ctx) return;
+      tone(ctx, { type: 'sine', freq: 160, freqEnd: 90, dur: 0.12, vol: 0.15 });
+    });
+  }
+
+  // Soft pop, played when a non-danger item is added.
+  function playAdd() {
+    if (!soundsEnabled) return;
+    noteSound('add');
+    ensureAudio().then(function (ctx) {
+      if (!ctx) return;
+      tone(ctx, { type: 'triangle', freq: 520, freqEnd: 660, dur: 0.1, vol: 0.15 });
+    });
+  }
+
+  // Eerie shimmer, played when a secret monster is unlocked.
+  function playSecret() {
+    if (!soundsEnabled) return;
+    noteSound('secret');
+    ensureAudio().then(function (ctx) {
+      if (!ctx) return;
+      tone(ctx, { type: 'sine', freq: 660, dur: 0.5, vol: 0.12 });
+      tone(ctx, { type: 'sine', freq: 622, delay: 0.09, dur: 0.5, vol: 0.12 });
+      tone(ctx, { type: 'sine', freq: 554, delay: 0.18, dur: 0.6, vol: 0.12 });
+    });
+  }
+
+  // Test sound: a creak followed by a chime. Ignores the toggle on
+  // purpose, so the Test Sound button always previews the sound.
+  function playTestSound() {
+    noteSound('test');
+    ensureAudio().then(function (ctx) {
+      if (!ctx) return;
+      tone(ctx, { type: 'sawtooth', freq: 190, freqEnd: 70, dur: 0.36, vol: 0.22 });
+      tone(ctx, { type: 'sine', freq: 880, delay: 0.45, dur: 0.3, vol: 0.2 });
+      tone(ctx, { type: 'sine', freq: 1320, delay: 0.53, dur: 0.3, vol: 0.2 });
+    });
   }
 
   // ===== Urgency =====
@@ -945,6 +1020,7 @@
     opts = opts || {};
     activeTab = id;
     render();
+    playTab();
     if (opts.updateHash !== false) {
       try { history.replaceState(null, '', '#' + id); } catch (e) { /* file URL or old browser */ }
     }
@@ -1484,6 +1560,9 @@
         '<button type="button" class="ctrl-btn ctrl-sounds" data-action="toggle-sounds" aria-pressed="' + soundsEnabled + '">' +
           soundsLabel +
         '</button>' +
+        '<button type="button" class="ctrl-btn ctrl-test-sound" data-action="test-sound" title="Play a test sound">' +
+          '\u266A Test Sound' +
+        '</button>' +
         '<button type="button" class="ctrl-btn ctrl-night" data-action="cycle-night" aria-pressed="' + nightActive() + '">' +
           nightLabel +
         '</button>' +
@@ -1768,6 +1847,8 @@
     var u = getUrgency(item);
     if (u.level === 'danger') {
       playCreak();
+    } else {
+      playAdd();
     }
     announce(item.name + ' added to the fridge. ' + getDaysText(u.daysRemaining) + '.');
     render();
@@ -2170,12 +2251,15 @@
       e.preventDefault();
       soundsEnabled = !soundsEnabled;
       saveSoundsEnabled();
-      // Audio context must be created/resumed from a user gesture.
-      if (soundsEnabled) {
-        var ctx = getAudioCtx();
-        if (ctx && ctx.state === 'suspended') { try { ctx.resume(); } catch (err) {} }
-      }
       render();
+      // Play a confirmation sound right away, so turning sounds on is
+      // heard immediately instead of staying silent until the next event.
+      if (soundsEnabled) playTestSound();
+
+    } else if (action === 'test-sound') {
+      e.preventDefault();
+      playTestSound();
+      announce('Playing a test sound.');
 
     } else if (action === 'cycle-night') {
       e.preventDefault();
@@ -2576,6 +2660,17 @@
 
     // Global keyboard handling for modal (Escape + focus trap)
     document.addEventListener('keydown', handleModalKeydown);
+
+    // Prime the audio engine on the first user gesture, so the first
+    // rescue or tab switch already has a running AudioContext.
+    var primedAudio = false;
+    function primeAudio() {
+      if (primedAudio) return;
+      primedAudio = true;
+      if (soundsEnabled) ensureAudio();
+    }
+    document.addEventListener('pointerdown', primeAudio, { once: true });
+    document.addEventListener('keydown', primeAudio, { once: true });
 
     // Countdown refresh: check every minute for day change
     setInterval(checkDayChange, 60000);
