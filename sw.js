@@ -4,7 +4,7 @@
    to the network, never the cache. Navigation requests fall back to
    the cached index.html when offline. Bump CACHE_NAME on shell changes.
    No em dashes in this file. */
-var CACHE_NAME = 'freshtrack-v3';
+var CACHE_NAME = 'freshtrack-v4';
 var PRECACHE = [
   './',
   './index.html',
