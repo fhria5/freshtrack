@@ -29,7 +29,9 @@
   var aiOpen = {};                  // item names with the AI recipe expanded
   var tonightLoading = false;       // Cook Tonight request in flight
   var audioCtx = null;              // lazily-created Web Audio context
-  var navObserver = null;           // IntersectionObserver for bottom-nav active state
+  var activeTab = 'pantry';         // visible tab: 'pantry' | 'impact' | 'codex' | 'share'
+  var TAB_IDS = ['pantry', 'impact', 'codex', 'share'];
+  var TAB_TITLES = { pantry: 'Pantry', impact: 'Impact Dashboard', codex: 'Monster Codex', share: 'Share the Horror' };
   var syncState = { code: null, deviceId: null, updatedAt: 0, lastSyncAt: 0, status: 'off', devices: 0 };
   var syncTimer = null;             // debounce timer for cloud pushes
   var syncInFlight = false;         // a push/pull is in flight
@@ -894,29 +896,84 @@
     var app = document.getElementById('app');
     app.innerHTML =
       renderHeader() +
-      renderControls() +
-      renderHousehold() +
-      renderForm() +
-      renderChallenge() +
-      renderTodaysHorrors() +
-      renderItemList() +
-      renderImpactDashboard() +
-      renderCodex() +
+      renderTabBar() +
+      renderTabPanel('pantry',
+        renderStatsStrip(computeStats()) +
+        renderControls() +
+        renderChallenge() +
+        renderTodaysHorrors() +
+        renderForm() +
+        renderHousehold() +
+        renderItemList()) +
+      renderTabPanel('impact', renderImpactDashboard()) +
+      renderTabPanel('codex', renderCodex()) +
+      renderTabPanel('share', renderSharePanel()) +
       renderFooter();
     lastRenderedDay = getTodayStr();
     applyNightMode();
-    // Sections are recreated on each render — re-observe them so the
-    // bottom-nav active state keeps tracking the on-screen section.
-    refreshNavTargets();
+    syncTabNavs();
+  }
+
+  // One tab panel: only the active tab is visible; the rest carry the
+  // hidden attribute (the [hidden] rule in styles.css hides them).
+  function renderTabPanel(id, inner) {
+    var hidden = (id === activeTab) ? '' : ' hidden';
+    return '<section class="tab-panel" id="panel-' + id + '" role="tabpanel" aria-labelledby="panel-' + id + '-title"' + hidden + '>' +
+      '<h2 class="tab-title" id="panel-' + id + '-title" tabindex="-1">' + TAB_TITLES[id] + '</h2>' +
+      inner +
+    '</section>';
+  }
+
+  // Desktop tab bar (sticky under the header; hidden on mobile, where the
+  // bottom nav switches tabs instead).
+  function renderTabBar() {
+    var icons = { pantry: '\uD83E\uDDDB', impact: '\uD83D\uDCCA', codex: '\uD83D\uDCDC', share: '\uD83D\uDCF8' };
+    var tabs = TAB_IDS.map(function (id) {
+      return '<button type="button" class="tab-btn" id="tab-' + id + '" role="tab" data-tab="' + id + '"' +
+        ' aria-selected="' + (id === activeTab ? 'true' : 'false') + '" aria-controls="panel-' + id + '"' +
+        ' aria-label="Open ' + TAB_TITLES[id] + ' tab">' +
+        '<span aria-hidden="true">' + icons[id] + '</span> ' + TAB_TITLES[id] + '</button>';
+    }).join('');
+    return '<div class="tab-bar" role="tablist" aria-label="FreshTrack sections">' + tabs + '</div>';
+  }
+
+  // Tab switching: re-renders with the new active tab, updates the URL hash
+  // (replaceState, so no history spam), moves focus to the tab title, and
+  // announces the switch on the live region.
+  function switchTab(id, opts) {
+    if (TAB_IDS.indexOf(id) === -1) return false;
+    opts = opts || {};
+    activeTab = id;
+    render();
+    if (opts.updateHash !== false) {
+      try { history.replaceState(null, '', '#' + id); } catch (e) { /* file URL or old browser */ }
+    }
+    if (opts.focus !== false) {
+      var title = document.getElementById('panel-' + id + '-title');
+      if (title) title.focus();
+    }
+    announce(TAB_TITLES[id] + ' tab open');
+    window.scrollTo(0, 0);
+    return true;
+  }
+
+  // Keeps both tab switchers (desktop tab bar + mobile bottom nav) in sync.
+  function syncTabNavs() {
+    var tabs = document.querySelectorAll('[data-tab]');
+    for (var i = 0; i < tabs.length; i++) {
+      var isActive = tabs[i].getAttribute('data-tab') === activeTab;
+      tabs[i].setAttribute('aria-selected', isActive ? 'true' : 'false');
+      tabs[i].classList.toggle('is-active', isActive);
+      if (isActive) tabs[i].setAttribute('aria-current', 'location');
+      else tabs[i].removeAttribute('aria-current');
+    }
   }
 
   function renderHeader() {
-    var stats = computeStats();
     return '' +
       '<header class="header">' +
         '<h1 class="app-title">FreshTrack</h1>' +
         '<p class="subtitle">Save them before they rot.</p>' +
-        renderStatsStrip(stats) +
       '</header>';
   }
 
@@ -1365,6 +1422,25 @@
         '<p>Kiroween 2026 \u2014 Costume Contest</p>' +
         '<p class="footer-flavor">Don\u2019t let the monsters win. \uD83C\uDF83</p>' +
       '</footer>';
+  }
+
+  // Share tab: stats recap + the two share actions (same data-action
+  // handlers as the controls strip, so one code path serves both).
+  function renderSharePanel() {
+    return '' +
+      '<section class="share-section" aria-label="Share FreshTrack">' +
+        '<p class="section-sub">Brag about the souls you saved. Every share spreads the rescue.</p>' +
+        '<div class="share-stats">' +
+          '<div class="share-stat"><span class="share-stat-value">' + soulsSaved + '</span><span class="share-stat-label">Souls Saved</span></div>' +
+          '<div class="share-stat"><span class="share-stat-value">' + countCaptured() + ' / 8</span><span class="share-stat-label">Monsters Captured</span></div>' +
+          '<div class="share-stat"><span class="share-stat-value">\uD83D\uDD25 ' + streakState.count + '</span><span class="share-stat-label">Day Streak</span></div>' +
+        '</div>' +
+        '<div class="share-actions">' +
+          '<button type="button" class="ctrl-btn share-btn" data-action="share-card">\uD83D\uDCF8 Share Card</button>' +
+          '<button type="button" class="ctrl-btn share-btn" data-action="share-weekly">\uD83D\uDCC5 Weekly Recap</button>' +
+        '</div>' +
+        '<p class="share-note">#KiroweenHackathon26</p>' +
+      '</section>';
   }
 
   // ===== Controls Strip (reminders / sounds / share) =====
@@ -2014,6 +2090,20 @@
   // ===== Click Delegation =====
 
   function handleClick(e) {
+    // Tab switcher (the desktop tab bar lives inside #app).
+    var tabBtn = e.target.closest('[data-tab]');
+    if (tabBtn) {
+      e.preventDefault();
+      switchTab(tabBtn.getAttribute('data-tab'));
+      return;
+    }
+    // Skip link: jump to the Pantry tab instead of a hidden anchor.
+    var skip = e.target.closest('.skip-link');
+    if (skip) {
+      e.preventDefault();
+      switchTab('pantry');
+      return;
+    }
     var target = e.target.closest('[data-action]');
     if (!target) return;
 
@@ -2390,27 +2480,29 @@
 
   // Builds the fixed bottom nav once and appends it to <body> (outside #app,
   // so it survives the full re-render of #app on every state change).
+  // The nav is a second tab switcher: tapping an item switches tabs.
   function createBottomNav() {
     if (document.getElementById('bottom-nav')) return;
 
     var nav = document.createElement('nav');
     nav.className = 'bottom-nav';
     nav.id = 'bottom-nav';
-    nav.setAttribute('aria-label', 'Primary navigation');
+    nav.setAttribute('role', 'tablist');
+    nav.setAttribute('aria-label', 'FreshTrack sections');
     nav.innerHTML =
-      '<button type="button" class="nav-item" data-nav="pantry" aria-label="Scroll to Pantry">' +
+      '<button type="button" class="nav-item" id="navtab-pantry" role="tab" data-tab="pantry" aria-selected="true" aria-controls="panel-pantry" aria-label="Open Pantry tab">' +
         '<span class="nav-icon" aria-hidden="true">\uD83E\uDDDB</span>' +
         '<span class="nav-label">Pantry</span>' +
       '</button>' +
-      '<button type="button" class="nav-item" data-nav="impact" aria-label="Scroll to Impact Dashboard">' +
+      '<button type="button" class="nav-item" id="navtab-impact" role="tab" data-tab="impact" aria-selected="false" aria-controls="panel-impact" aria-label="Open Impact tab">' +
         '<span class="nav-icon" aria-hidden="true">\uD83D\uDCCA</span>' +
         '<span class="nav-label">Impact</span>' +
       '</button>' +
-      '<button type="button" class="nav-item" data-nav="codex" aria-label="Scroll to Monster Codex">' +
+      '<button type="button" class="nav-item" id="navtab-codex" role="tab" data-tab="codex" aria-selected="false" aria-controls="panel-codex" aria-label="Open Codex tab">' +
         '<span class="nav-icon" aria-hidden="true">\uD83D\uDCDC</span>' +
         '<span class="nav-label">Codex</span>' +
       '</button>' +
-      '<button type="button" class="nav-item" data-nav="share" aria-label="Share FreshTrack card">' +
+      '<button type="button" class="nav-item" id="navtab-share" role="tab" data-tab="share" aria-selected="false" aria-controls="panel-share" aria-label="Open Share tab">' +
         '<span class="nav-icon" aria-hidden="true">\uD83D\uDCF8</span>' +
         '<span class="nav-label">Share</span>' +
       '</button>';
@@ -2419,63 +2511,11 @@
     nav.addEventListener('click', handleNavClick);
   }
 
-  // Click handling for the bottom nav. Pantry/Impact/Codex smooth-scroll to
-  // their section anchor; Share reuses the existing share-card action.
+  // Click handling for the bottom nav: every item switches tabs.
   function handleNavClick(e) {
     var btn = e.target.closest('.nav-item');
     if (!btn) return;
-
-    var target = btn.getAttribute('data-nav');
-    if (target === 'share') {
-      handleShare();
-      return;
-    }
-
-    var el = document.getElementById(target);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setActiveNav(target);
-    }
-  }
-
-  // Toggles the .is-active highlight (and aria-current) on the matching item.
-  function setActiveNav(id) {
-    var navItems = document.querySelectorAll('#bottom-nav .nav-item');
-    for (var i = 0; i < navItems.length; i++) {
-      var isActive = navItems[i].getAttribute('data-nav') === id;
-      navItems[i].classList.toggle('is-active', isActive);
-      if (isActive) {
-        navItems[i].setAttribute('aria-current', 'location');
-      } else {
-        navItems[i].removeAttribute('aria-current');
-      }
-    }
-  }
-
-  // Lazily creates the IntersectionObserver used to highlight whichever
-  // section currently sits in the middle band of the viewport.
-  function getNavObserver() {
-    if (navObserver || !('IntersectionObserver' in window)) return navObserver;
-    navObserver = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          setActiveNav(entry.target.id);
-        }
-      });
-    }, { rootMargin: '-40% 0px -45% 0px', threshold: 0 });
-    return navObserver;
-  }
-
-  // Re-observes the current section elements (they are recreated each render).
-  function refreshNavTargets() {
-    var obs = getNavObserver();
-    if (!obs) return;
-    obs.disconnect();
-    var ids = ['pantry', 'impact', 'codex'];
-    for (var i = 0; i < ids.length; i++) {
-      var el = document.getElementById(ids[i]);
-      if (el) obs.observe(el);
-    }
+    switchTab(btn.getAttribute('data-tab'));
   }
 
   // ===== Installable App (PWA, Phase 20) =====
@@ -2519,6 +2559,9 @@
     nightPref = loadNightPref();
     syncState = loadSync();
     applyNightMode();
+    // Deep link: #pantry / #impact / #codex / #share opens that tab on load.
+    var hashTab = (window.location.hash || '').replace('#', '');
+    if (TAB_IDS.indexOf(hashTab) !== -1) activeTab = hashTab;
     createBottomNav();
     render();
     registerServiceWorker();
@@ -2541,6 +2584,14 @@
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden) {
         checkDayChange();
+      }
+    });
+
+    // Deep-link hash changes (back/forward, pasted links) switch tabs.
+    window.addEventListener('hashchange', function () {
+      var h = (window.location.hash || '').replace('#', '');
+      if (TAB_IDS.indexOf(h) !== -1 && h !== activeTab) {
+        switchTab(h, { focus: false, updateHash: false });
       }
     });
 
