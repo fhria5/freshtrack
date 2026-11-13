@@ -833,7 +833,7 @@
   // Horror ambient loop, Web Audio only, no audio files. A low detuned
   // drone through a slow-breathing lowpass filter, a faint wind bed, and
   // a random eerie note every few seconds. Everything runs through one
-  // quiet master gain (0.05) so the music stays under the UI.
+  // master gain (0.15) so the music stays audible on phone speakers.
   var EERIE_NOTES = [220, 233.08, 261.63, 311.13, 329.63, 415.30];
 
   // One soft music note through the music master gain. opts: freq,
@@ -863,9 +863,9 @@
       if (!musicNodes || !musicEnabled) return;
       var ctx = musicNodes.ctx;
       var base = EERIE_NOTES[Math.floor(Math.random() * EERIE_NOTES.length)];
-      musicTone(ctx, { freq: base, dur: 1.8 + Math.random(), vol: 0.03 + Math.random() * 0.015 });
+      musicTone(ctx, { freq: base, dur: 1.8 + Math.random(), vol: 0.05 + Math.random() * 0.02 });
       if (Math.random() < 0.35) {
-        musicTone(ctx, { freq: base * 1.059, delay: 0.25, dur: 2.2, vol: 0.025 });
+        musicTone(ctx, { freq: base * 1.059, delay: 0.25, dur: 2.2, vol: 0.04 });
       }
       noteMusic('music-note');
       scheduleEerieNote();
@@ -878,7 +878,7 @@
     ensureAudio().then(function (ctx) {
       if (!ctx || !musicEnabled || musicNodes) return;
       var master = ctx.createGain();
-      master.gain.value = 0.05;
+      master.gain.value = 0.15;
       master.connect(ctx.destination);
 
       var filter = ctx.createBiquadFilter();
@@ -889,10 +889,10 @@
 
       var drone1 = ctx.createOscillator();
       drone1.type = 'sine';
-      drone1.frequency.value = 55;
+      drone1.frequency.value = 110;
       var drone2 = ctx.createOscillator();
       drone2.type = 'triangle';
-      drone2.frequency.value = 55.5;
+      drone2.frequency.value = 110.5;
       var d1g = ctx.createGain(); d1g.gain.value = 0.5;
       var d2g = ctx.createGain(); d2g.gain.value = 0.4;
       drone1.connect(d1g); d1g.connect(filter);
@@ -918,7 +918,7 @@
       band.frequency.value = 420;
       band.Q.value = 0.5;
       var windGain = ctx.createGain();
-      windGain.gain.value = 0.012;
+      windGain.gain.value = 0.02;
       wind.connect(band); band.connect(windGain); windGain.connect(master);
       var windLfo = ctx.createOscillator();
       windLfo.type = 'sine';
@@ -1549,7 +1549,7 @@
       '<footer class="footer">' +
         '<p>Kiroween 2026 \u2014 Costume Contest</p>' +
         '<p class="footer-flavor">Don\u2019t let the monsters win. \uD83C\uDF83</p>' +
-        '<p class="footer-version">FreshTrack v24.1 (music on by default)</p>' +
+        '<p class="footer-version">FreshTrack v25.1 (louder music)</p>' +
       '</footer>';
   }
 
