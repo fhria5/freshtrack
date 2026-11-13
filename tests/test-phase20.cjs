@@ -298,7 +298,8 @@ async function main() {
     check('manifest link present', pwa.manifestLink, '');
     check('manifest serves valid JSON', pwa.manifestStatus === 200 && pwa.manifestName === 'FreshTrack: Fridge Horror', JSON.stringify(pwa));
     check('manifest lists 192 + 512 icons', pwa.manifestIcons === '192x192,512x512', pwa.manifestIcons);
-    check('sw.js serves', pwa.swStatus === 200 && pwa.swBody.includes('freshtrack-v1'), pwa.swBody);
+    // Cache name was bumped v1 to v2 in Phase 22.1 (stale app.js served from the old cache).
+    check('sw.js serves', pwa.swStatus === 200 && pwa.swBody.includes('freshtrack-v2'), pwa.swBody);
     check('icons serve', pwa.iconsStatus === '200/200', pwa.iconsStatus);
     check('service worker registered', pwa.swRegistered === true, 'registered=' + pwa.swRegistered + ' scope=' + pwa.swScope);
 
