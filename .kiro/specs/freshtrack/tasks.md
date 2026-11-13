@@ -417,3 +417,39 @@ Score plan from `rencana-naik-skor.md` (user: run every lane that raises the odd
 - [x] Update `rencana-submit-kiroween.md` and `rencana-naik-skor.md`: B/C/D done, A in progress, user steps listed.
 - [x] Verify: Phase 20 suite 41/41; regressions v2 27/27, Codex secrets 18/18, Phase 19 audit 55/55; `node --check` passes on app.js, recipes.js, worker.js, sw.js, test-phase20.cjs; 0 new em dashes (app.js back to 11 legacy).
 - [x] Deploy via `deploy_freshtrack.py`; verify live: all 8 changed/new blob SHAs match local (app.js, styles.css, index.html, manifest.json, sw.js, worker.js, both icons), demo 200, new strings present in live files, Worker health `{ ok: true, ai: true, sync: true }`.
+
+## Phase 21: Tab View Navigation — 13 Nov 2026
+User choice (13 Nov ~19:54): "Tab view: tiap menu tampil sendiri". Measured before: single scroll page 4023px (4.8 screens) on mobile 390px, 2926px (3.5 screens) on desktop 1280px. Kiro plan credits exhausted (50/50, reset 1 Dec); all Phase 21 work done directly against this spec.
+
+### Task 21.1 — Tab view in app.js
+- [x] Add `activeTab` state ('pantry' | 'impact' | 'codex' | 'share', default 'pantry') + `TAB_IDS` / `TAB_TITLES`.
+- [x] `render()` composes header (title + subtitle only) + desktop tab bar + 4 tab panels + footer. Each panel is a `<section role="tabpanel">` with an `<h2 class="tab-title" tabindex="-1">` focus target; inactive panels carry the `hidden` attribute (the existing `[hidden]` CSS rule hides them).
+- [x] Panel mapping: Pantry = stats strip + controls strip + challenge + Today's Horrors + add-item form + Household (compact bar above the list) + item list; Impact = dashboard section; Codex = codex section; Share = new share panel (stats recap + Share Card + Weekly Recap buttons, same data-action handlers as the controls strip).
+- [x] `switchTab(id, opts)`: re-renders, updates the URL hash via `history.replaceState` (no history spam), moves focus to the panel title, announces via `#sr-announcer`, scrolls to top.
+- [x] Deep links: `#pantry` / `#impact` / `#codex` / `#share` open the matching tab on load; a `hashchange` listener switches tabs on back/forward and pasted links.
+- [x] Skip link: click intercepts to `switchTab('pantry')` instead of jumping to a hidden anchor.
+- [x] Remove the old scroll navigation: `IntersectionObserver` nav tracking (`getNavObserver` / `refreshNavTargets` / `setActiveNav`) deleted; bottom nav no longer scrolls or triggers share directly.
+- [x] Verify: `node --check app.js` passes; 0 new em dashes (app.js 11 legacy, one legacy em dash in a removed comment, now 10).
+
+### Task 21.2 — Tab switchers in app.js + styles.css
+- [x] Desktop tab bar (inside #app): `role="tablist"`, 4 buttons `role="tab"` with `aria-selected`, `aria-controls`, `aria-label`; sticky under the header on >=769px, hidden on mobile.
+- [x] Mobile bottom nav: now a second tab switcher (`role="tablist"`, buttons `role="tab"`, `data-tab`, `aria-selected`, `aria-controls`); `syncTabNavs()` keeps both switchers in sync (aria-selected + .is-active + aria-current).
+- [x] Tab bar CSS: sticky, amber underline on the selected tab, min 44px targets; tab title style with focus outline; compact Household bar inside the Pantry tab (tighter padding, smaller title); Share tab styles (stats, actions, #KiroweenHackathon26 note) reusing existing palette tokens.
+- [x] Controls strip on <=480px is now a 2-column grid instead of a full-width column (saves ~150px on the Pantry tab).
+- [x] Codex cards tightened on <=480px (padding 0.7rem, grid gap 0.6rem) so the Codex tab fits ~2 screens.
+- [x] `.btn-ai` min size raised 44px to 46px: an exact-44px button trips the tap-target audit on subpixel rounding (rect 43.99 < 44).
+- [x] Verify: 0 new em dashes in styles.css; mobile 390px + desktop 1280px: 0 console errors, 0 targets under 44px, 0 horizontal overflow per tab.
+
+### Task 21.3 — Playwright verification
+- [x] Add `tests/test-phase21-tabs.cjs` (57 checks): default tab Pantry with only its panel visible; aria-selected on both navs; bottom-nav and tab-bar switching with focus moving to the tab title and the live-region announcement; hash becomes #codex on switch; deep links #codex / #share on load; hashchange switches; per-tab viewport audits (0 console errors, 0 overflow, 0 targets under 44px); per-tab heights with demo pantry; features inside tabs (add item, AI Recipe 503 fallback, rescue XP visible in Codex tab, Cook Tonight modal, Share Card download from the Share tab); skip link focuses first on a fresh page and Enter switches to Pantry.
+- [x] Heights with demo pantry (4 items), before vs after: mobile 390px: Pantry 2670px (3.2 screens), Impact 844 (1.0), Codex 1679 (2.0), Share 844 (1.0), vs 4023px (4.8) before. Desktop 1280px: Pantry 2342 (2.9), Impact 800 (1.0), Codex 1185 (1.5), Share 800 (1.0), vs 2926px (3.5) before. Note: the Pantry tab stays above the ~2-screen target (form + 4 demo cards are inherently tall); collapsing the form behind a toggle is a possible follow-up, not done here.
+- [x] Fix in the Phase 19 suite: section 12 share clicks scoped to `.controls-strip` (the Share tab has a second pair of the same buttons, so the bare selector matched twice).
+- [x] Test-only lesson: after a same-document navigation, Chrome resumes Tab from the last focused element even after `blur()`; the skip-link check therefore uses a fresh page.
+- [x] Verify: Phase 21 suite 57/57; regressions v2 27/27, Codex secrets 18/18, Phase 19 audit 55/55, Phase 20 41/41. Total 198 checks.
+
+### Task 21.4 — Docs + deploy
+- [x] Add `tests/test-phase21-tabs.cjs` to the `FILES` list in `deploy_freshtrack.py`.
+- [x] README: Phase 21 noted in "Built with Kiro" (direct work, honest split) and in the verification counts (198 checks).
+- [x] Update `rencana-submit-kiroween.md`: Phase 21 live; video v2 now shows the old scrolling layout, not the tab view (re-record decision pending).
+- [x] Deploy via `deploy_freshtrack.py`; verify live: blob SHAs match local (app.js, styles.css, test-phase21-tabs.cjs, test-phase19-audit.cjs), demo 200, live app.js contains `switchTab`/`renderTabPanel`, live styles.css contains `tab-bar`, Worker health `{ ok: true, ai: true, sync: true }`. GitHub Pages builds 12:07:58Z + 12:08:02Z errored (multi-file deploy race, known); build 12:08:05Z stuck in `building`; fixed by re-PUT app.js (identical content), build 12:11:03Z `built`, live verified after.
+- [x] Live height measurement via Playwright is not possible from the sandbox (headless browser has no internet egress, known limitation); heights above were measured on the local server running the exact deployed code (blob SHAs match), so they represent the live heights.
