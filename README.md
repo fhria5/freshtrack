@@ -92,7 +92,10 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    credits stayed exhausted. Phase 20 (score plan: server pantry sync
    via Workers KV, Haunted Household shared pantry, PWA installable,
    Kiro bonus/hook investigation, video v2) was also completed directly
-   against the spec for the same reason.
+   against the spec for the same reason. Phase 21 (tab view navigation:
+   one tab visible at a time, desktop sticky tab bar + mobile bottom
+   nav as tab switchers, deep-link hashes, Share tab) was also completed
+   directly against the spec for the same reason.
 3. **Steering** - `.kiro/steering/` holds `product.md`, `tech.md`, and
    `structure.md`, describing the app as it actually is: vanilla JS, the
    localStorage keys, the Codex migration, the palette tokens, the 44px
@@ -113,7 +116,10 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    suites pass alongside it. Phase 20 added a 41-check suite (cloud sync
    create/join/409/offline/leave, photo stripped from server pushes,
    PWA manifest + service worker registration) and all four suites pass
-   together (141 checks).
+   together (141 checks). Phase 21 added a 57-check tab-view suite
+   (tab switching by click/hash/deep link, one visible panel, focus +
+   aria, per-tab heights, feature flows inside tabs, skip link) and all
+   five suites pass together (198 checks).
 
 The `.kiro` directory in this repo is the evidence of that workflow.
 
