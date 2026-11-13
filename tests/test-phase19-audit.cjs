@@ -351,12 +351,14 @@ async function main() {
     check('empty filter shows guidance text', filterEmpty.includes('No recipes in this category for this item. Try another filter.'), filterEmpty.slice(0, 120));
 
     // 12. Share card + weekly recap draw without console errors (download fallback in headless).
+    // Scoped to the controls strip: the Share tab has a second pair of the
+    // same buttons, so the bare selector would match twice (Phase 21).
     const dl = page.waitForEvent('download', { timeout: 15000 }).catch(() => null);
-    await page.click('[data-action="share-card"]');
+    await page.click('.controls-strip [data-action="share-card"]');
     const download = await dl;
     check('Share Card produces a download', download !== null, download ? await download.suggestedFilename() : 'no download event');
     const dl2 = page.waitForEvent('download', { timeout: 15000 }).catch(() => null);
-    await page.click('[data-action="share-weekly"]');
+    await page.click('.controls-strip [data-action="share-weekly"]');
     const download2 = await dl2;
     check('Weekly Recap produces a download', download2 !== null, download2 ? await download2.suggestedFilename() : 'no download event');
     check('share flows: 0 console errors', errors.length === 0, errors.slice(0, 3).join(' ; '));
