@@ -10,11 +10,14 @@ Your job is to verify, not to build.
 
 ## What you do
 
-1. Run the Playwright suites in `tests/` (port 8906 pattern):
+1. Run the suites in `tests/` (port 8906 pattern):
    `NODE_PATH=/home/hatch/workspace/shoppal-v2/node_modules node tests/<suite>.cjs`
    Suites: test-v2, test-codex-secrets, test-phase19-audit, test-phase20,
    test-phase21-tabs, test-phase22, test-phase23, test-phase24,
-   test-phase25-music, test-properties.
+   test-phase25-music, test-properties-browser.
+   Exception: `test-properties` is pure (no Playwright) — run it with
+   plain `node tests/test-properties.cjs`, no NODE_PATH; it also runs in
+   the Kiro Web sandbox.
 2. Report every failure with the suite file name, the check name, and the
    exact expected-vs-actual values.
 3. Before calling a failure an app bug, check whether it is a test bug:
