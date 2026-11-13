@@ -141,7 +141,10 @@ async function main() {
     // tightening the header margins); bound raised 1688 to 1760, still ~2 screens.
     // Phase 24: the Codex secret progress bars/text add ~80px to the Codex
     // tab; bound raised 1760 to 1840, still ~2 screens.
-    check('mobile: Impact/Codex/Share tabs fit ~2 screens (<=1840px)', mobHeights.impact <= 1840 && mobHeights.codex <= 1840 && mobHeights.share <= 1840, JSON.stringify(mobHeights));
+    // Phase 25: a rescue fills the Triple Threat progress and levels a
+    // monster, adding ~21px to the Codex tab (1823 fresh -> 1844 after a
+    // rescue); bound raised 1840 to 1860, still ~2 screens.
+    check('mobile: Impact/Codex/Share tabs fit ~2 screens (<=1860px)', mobHeights.impact <= 1860 && mobHeights.codex <= 1860 && mobHeights.share <= 1860, JSON.stringify(mobHeights));
     await mob.close();
 
     // 4. Desktop: tab bar visible, bottom nav hidden; tab bar switches tabs.
@@ -213,7 +216,9 @@ async function main() {
     await desk.click('#tab-codex');
     await desk.waitForTimeout(400);
     const codexSub = await desk.evaluate(() => (document.querySelector('.codex-section .section-sub') || {}).textContent || '');
-    check('codex tab: rescue XP visible after switch', /1 \/ 8 captured/.test(codexSub), codexSub.slice(0, 100));
+    // Day rescue captures only the danger monster (1/8); a night rescue
+    // also captures Midnight Watcher (2/8). Either proves XP is visible.
+    check('codex tab: rescue XP visible after switch', /[12] \/ 8 captured/.test(codexSub), codexSub.slice(0, 100));
     // Cook Tonight modal opens from the Pantry tab.
     await desk.click('#tab-pantry');
     await desk.waitForTimeout(400);
