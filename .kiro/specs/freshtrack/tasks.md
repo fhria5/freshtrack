@@ -453,3 +453,36 @@ User choice (13 Nov ~19:54): "Tab view: tiap menu tampil sendiri". Measured befo
 - [x] Update `rencana-submit-kiroween.md`: Phase 21 live; video v2 now shows the old scrolling layout, not the tab view (re-record decision pending).
 - [x] Deploy via `deploy_freshtrack.py`; verify live: blob SHAs match local (app.js, styles.css, test-phase21-tabs.cjs, test-phase19-audit.cjs), demo 200, live app.js contains `switchTab`/`renderTabPanel`, live styles.css contains `tab-bar`, Worker health `{ ok: true, ai: true, sync: true }`. GitHub Pages builds 12:07:58Z + 12:08:02Z errored (multi-file deploy race, known); build 12:08:05Z stuck in `building`; fixed by re-PUT app.js (identical content), build 12:11:03Z `built`, live verified after.
 - [x] Live height measurement via Playwright is not possible from the sandbox (headless browser has no internet egress, known limitation); heights above were measured on the local server running the exact deployed code (blob SHAs match), so they represent the live heights.
+
+## Phase 22: Horror Design + Spooky Sounds — 13 Nov 2026
+User orders (13 Nov ~20:18): "Design nya yang horror dong" and "Terus suaranya ga ada juga". Kiro plan credits exhausted (50/50, reset 1 Dec); all Phase 22 work done directly against this spec.
+
+### Task 22.1 — Sound diagnosis (why no sound)
+- [x] Root causes found in app.js: (1) sounds defaulted OFF (`soundsEnabled = false`, `loadSoundsEnabled()` returned true only when localStorage held 'true'), so a fresh user heard nothing unless they found the toggle buried in the controls strip; (2) sounds fired on only 2 events (creak on danger add, chime on rescue), nothing on tab switch / normal add / secret unlock; (3) playCreak/playChime called `ctx.resume()` without awaiting it and scheduled notes on a possibly still-suspended context, which silently drops them.
+- [x] Fix: `ensureAudio()` returns a promise for a running context; all sounds schedule notes only after it resolves. A shared `tone(ctx, opts)` helper builds the oscillator notes. `window.__freshTrack` debug hook exposes `audioState()`, `soundsOn()`, `lastSound()`, `soundLog()` so headless tests can verify sounds without speakers.
+
+### Task 22.2 — Sounds on by default + more sound events
+- [x] Default flipped OFF to ON (reverses the old polishing decision, on explicit user order): `soundsEnabled` starts true; `loadSoundsEnabled()` returns true unless localStorage holds an explicit 'false', so users who turned sounds off stay off.
+- [x] New sounds (Web Audio only, no audio files): low thud on tab switch (`playTab`), soft pop on adding a non-danger item (`playAdd`), eerie shimmer on secret unlock (`playSecret`), creak + chime test sequence (`playTestSound`).
+- [x] AudioContext is primed on the first user gesture (one-time pointerdown/keydown listener), so the first rescue or tab switch already has a running context.
+- [x] New "Test Sound" button next to the sounds toggle in the controls strip (always previews, even when sounds are off). Turning sounds on plays the test sound immediately as confirmation. Toggle and pref (localStorage `freshtrack.sounds`) still respected; off survives reload.
+- [x] Verify: fresh profile shows "Sounds: On"; Test Sound logs a test sound and AudioContext is running after the gesture; toggle off saves 'false', toggle on plays confirmation; tab/add/rescue/danger-add/secret-unlock each log their sound; off pref survives reload.
+
+### Task 22.3 — More horror in styles.css
+- [x] Palette deepened: `--bg-deep` #0d0a14 to #08060f (near-black); new decorative tokens `--accent-blood` #c1121f, `--accent-blood-glow`, `--mist`. Text tokens untouched, so Phase 19 contrast still holds (re-audited in the suite: all 8 text/background pairs >= 4.5:1).
+- [x] Always-on drifting mist (`body::before`, radial gradients, `mistDrift` 36s, pointer-events off, low opacity); flickering app title (`titleFlicker` 6s, always, night mode keeps its own `flicker`); blood-red gradient divider under the header.
+- [x] Danger/rotten cards: stronger blood glow, rotten adds an inner blood vignette, monsters get a red drop-shadow glow. Rescue button pulses green on danger/rotten cards (`rescuePulse`) and glows on hover. Submit button gradient deepened to blood red.
+- [x] Codex: captured cards keep a faint amber glow; captured secret cards pulse (`secretPulse`). Tab bar gets a dark gradient + blood glow; selected tab underline turns blood red; bottom-nav active bar turns blood red.
+- [x] Panels (form, dashboard, codex, household, share) get a faint inner vignette. `prefers-reduced-motion` still collapses all animations (global rule). No new assets, no external images.
+- [x] Layout note: the header blood divider added 18px to every tab, pushing the Codex tab to 1697px (9px over the Phase 21 <=1688px check). Fixed by tightening the divider margin (1rem to 0.25rem); Codex back to 1685px. Pantry tab grew to 2750px on mobile (divider + Test Sound button wrapping the controls grid to 4 rows); still above the ~2-screen target, same known limitation as Phase 21.
+
+### Task 22.4 — Playwright verification
+- [x] Add `tests/test-phase22.cjs` (39 checks): horror tokens present; mist layer + drift; title flicker; blood divider; contrast AA for all 8 text pairs; reduced-motion collapse; sounds default ON with Test Sound button; test sound logs + AudioContext running; toggle off/on with pref; tab/add/rescue/danger-add sounds; secret unlock (Triple Threat, 3rd rescue of the day) logs a secret sound; danger card blood glow + rescue pulse + monster glow; captured Codex glow; off pref survives reload; 0 console errors; 0 horizontal overflow.
+- [x] One test-only fix during the run: the contrast helper first parsed only rgb() colors while tokens come back as hex, giving 1:1 for all pairs; fixed the parser to handle hex, then 39/39.
+- [x] Verify: Phase 22 suite 39/39; regressions v2 27/27, Codex secrets 18/18, Phase 19 audit 55/55, Phase 20 41/41, Phase 21 tabs 57/57. Total 237 checks. `node --check` passes on app.js and recipes.js; 0 new em dashes (app.js 10 to 8 legacy, the sound-engine rewrite dropped two legacy em dashes in comments; styles.css 0; test file 0).
+
+### Task 22.5 — Docs + deploy
+- [x] Add `tests/test-phase22.cjs` to the `FILES` list in `deploy_freshtrack.py`.
+- [x] README: Spooky Sounds now "on by default"; Phase 22 noted in "Built with Kiro" (direct work, honest split) and in the verification counts (237 checks).
+- [x] Deploy via `deploy_freshtrack.py`; verify live: demo 200, live app.js contains `playTab`/`playTestSound`/`ensureAudio`, live styles.css contains `accent-blood`/`mistDrift`, Worker health `{ ok: true, ai: true, sync: true }`.
+- [x] Honest limitation: headless tests verify sounds through the `window.__freshTrack` hook (sound log + AudioContext state), not by listening. Final confirmation that sounds are actually heard must come from the user's phone.
