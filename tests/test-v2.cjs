@@ -173,15 +173,17 @@ async function main() {
     check('rescue starts streak', (after.streak.count || 0) >= 1, JSON.stringify(after.streak));
     check('rescue increments souls saved', Number(after.souls) >= 1, 'souls=' + after.souls);
 
-    // Night mode toggle. Time-independent: one click must flip the class
-    // from the initial state, and two more clicks must return to it
-    // (Auto -> On -> Off -> Auto). The old version clicked twice and
-    // assumed UTC night, which fails during UTC daytime.
+    // Night mode toggle. The class does NOT flip on one click at night
+    // (Auto is already on at night, and one click sets explicit On), so
+    // assert the label cycle instead: Auto -> On -> Off -> Auto. Two more
+    // clicks must return the class to its initial state.
     const nightBefore = await page.evaluate(() => document.body.classList.contains('night-mode'));
+    const nightLabel = async () => page.evaluate(() => (document.querySelector('[data-action="cycle-night"]') || {}).textContent || '');
+    const labelBefore = await nightLabel();
     await page.click('[data-action="cycle-night"]');
     await page.waitForTimeout(300);
-    const nightMid = await page.evaluate(() => document.body.classList.contains('night-mode'));
-    check('night mode flips on one click', nightMid !== nightBefore, 'before=' + nightBefore + ' after1=' + nightMid);
+    const labelMid = await nightLabel();
+    check('night mode cycles label Auto -> On', labelBefore.indexOf('Auto') !== -1 && labelMid.indexOf('On') !== -1, 'before=' + labelBefore.trim() + ' after1=' + labelMid.trim());
     await page.click('[data-action="cycle-night"]');
     await page.click('[data-action="cycle-night"]');
     await page.waitForTimeout(300);
