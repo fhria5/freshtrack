@@ -33,6 +33,7 @@
 - `freshtrack.streak` - daily rescue streak `{ count, lastDate }`
 - `freshtrack.nightmode` - Night Mode preference `auto | on | off`
 - `freshtrack.sounds` - Spooky Sounds on/off (default off)
+- `freshtrack.sync` - cloud sync state `{ code, deviceId, updatedAt, lastSyncAt, status, devices }`; `code` is the 6-char household code or null when not joined. Photos are never sent to the server.
 
 AI results are cached in memory only (`aiCache`, keyed by lowercase item
 name). Never persist AI output or API keys in localStorage.
