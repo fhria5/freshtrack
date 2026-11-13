@@ -325,3 +325,24 @@ Implementation tasks for the FreshTrack app. Each task is self-contained and ver
 - [x] Playwright flow: add item, AI Recipe (falls back cleanly while the secret is absent), rescue, Codex XP gain, streak, night mode, photo upload.
 - [x] Deploy via `deploy_freshtrack.py`; verify live from GitHub Pages (curl fresh styles.css/app.js content + repo blob SHA equals local).
 - [x] Report credit usage before vs after (from `kiro-cli chat /usage`).
+
+## Phase 18: Monster Codex Expansion — 4 Secret Monsters
+
+### Task 18.1 — Secret monsters in app.js
+- [x] Add `SECRET_MONSTERS` (Glimmer Sprout, Midnight Watcher, Triple Threat, Void King) with emoji, name, lore, and hint; one secret per urgency tier, no levels, single capture.
+- [x] Add state `secretCaptured`, `aiRecipeReady`, `tonightPlanOpen`; persist secrets in the same `freshtrack.codex` key (`secrets` block) with migration: old saves without secrets load with all secrets locked.
+- [x] Add `unlockSecret()` + `checkSecretUnlocks()` called from `rescueItem()`: Glimmer Sprout = rescue an item with a real AI recipe; Midnight Watcher = rescue while `nightActive()`; Triple Threat = 3 rescues in one day (counted from historyLog); Void King = rescue after `openTonightModal()` set the flag.
+- [x] `countCaptured()` counts all 8 monsters; `renderCodex()` renders 4 secret cards (locked: "??? Secret Monster" + hint + Secret badge; captured: emoji + name + lore) and sub text "X / 8 captured. Four secret monsters hide in the dark. Find them."
+- [x] Verify: `node --check app.js` passes; no em dash in new strings or comments.
+
+### Task 18.2 — Secret card styles
+- [x] Add `.codex-card.secret` (dashed border, amber left edge), `.codex-secret-mark` ("?" in Creepster), `.codex-badge.secret` to styles.css, reusing existing palette tokens.
+- [x] Verify: no em dash in new CSS; mobile 390px 0 overflow, 0 console errors.
+
+### Task 18.3 — Playwright verification
+- [x] Add `tests/test-codex-secrets.cjs`: 8 codex cards, 4 secrets hidden as ???, sub "0 / 8 captured"; Midnight Watcher via night rescue; Triple Threat locked at 2 rescues, unlocked at 3; Void King via Cook Tonight modal + rescue; Glimmer Sprout via mocked Worker 200 AI recipe + rescue; 8 / 8 captured; secrets persist after reload; 0 console errors.
+- [x] Verify: 18/18 checks pass (`ALL PASS`).
+
+### Task 18.4 — Docs + deploy
+- [x] Update README Monster Codex line (8 monsters, 4 secret, unlock conditions named).
+- [x] Deploy via `deploy_freshtrack.py`; verify live from GitHub Pages (curl fresh app.js content + repo blob SHA equals local).
