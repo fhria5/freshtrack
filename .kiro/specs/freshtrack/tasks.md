@@ -546,5 +546,5 @@ Source: user uploaded `FreshTrack___Save_Them_Before_They_Rot__Kiroween_2026_Upg
 ### Task 24.5 - Docs + deploy
 - [x] Add `tests/test-phase24.cjs` to the `FILES` list in `deploy_freshtrack.py`.
 - [x] README + MEMORY.md: Phase 24 noted (Freeze + Codex progress merged from the user's uploaded file; the file's fake OCR / fake sync link / Tailwind rewrite NOT used).
-- [x] Deploy via `deploy_freshtrack.py`; verify live: demo 200, live app.js contains freeze + footer v24.1, live sw.js freshtrack-v4, Worker health `{ ok: true, ai: true, sync: true }`. (Fill in after deploy.)
+- [x] Deploy via `deploy_freshtrack.py`; verify live: demo 200, live app.js contains freezeItem + footer v24.1 (3 matches) + secretProgressHtml (2), live sw.js freshtrack-v4 (1), Worker health `{ ok: true, ai: true, sync: true }`. Pages builds: 4 errored (multi-file race, as usual) then 14:35:20Z built; live files confirmed after the build.
 - [x] Honest limitation: the video demo v2 does not show Freeze or the Codex progress (recorded before Phase 20-24); re-record or note in the write-up, parent decision.
