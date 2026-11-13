@@ -548,3 +548,48 @@ Source: user uploaded `FreshTrack___Save_Them_Before_They_Rot__Kiroween_2026_Upg
 - [x] README + MEMORY.md: Phase 24 noted (Freeze + Codex progress merged from the user's uploaded file; the file's fake OCR / fake sync link / Tailwind rewrite NOT used).
 - [x] Deploy via `deploy_freshtrack.py`; verify live: demo 200, live app.js contains freezeItem + footer v24.1 (3 matches) + secretProgressHtml (2), live sw.js freshtrack-v4 (1), Worker health `{ ok: true, ai: true, sync: true }`. Pages builds: 4 errored (multi-file race, as usual) then 14:35:20Z built; live files confirmed after the build.
 - [x] Honest limitation: the video demo v2 does not show Freeze or the Codex progress (recorded before Phase 20-24); re-record or note in the write-up, parent decision.
+
+## Phase 25: Louder Music for Phone Speakers - 13 Nov 2026
+
+Source: user (23:00) "Knpa ga ada musik nya" after Phase 23 shipped the horror background music. Cause found by reading `app.js`: the music ran, but master gain 0.05 with a 55 Hz drone is below what phone speakers reproduce, and the music only starts after the first tap (autoplay policy). Kiro plan credits exhausted (50/50, reset 1 Dec); all Phase 25 work done directly against this spec.
+
+### Task 25.1 - Audibility fix (app.js + sw.js)
+- [x] Master gain 0.05 -> 0.15; drone 55/55.5 Hz -> 110/110.5 Hz (still low and ominous, but inside the range phone speakers reproduce); eerie notes 0.03 base -> 0.05 base (harmony 0.025 -> 0.04); wind bed 0.012 -> 0.02. No new DOM, no new toggle; the header Music toggle and the first-gesture start are unchanged.
+- [x] Footer stamp v24.1 -> v25.1. Service worker cache `freshtrack-v4` -> `freshtrack-v5` (Phase 22.1 lesson). Cache assertions in `tests/test-phase20.cjs` (v4 -> v5) and `tests/test-phase24.cjs` (v4 -> v5, two spots) updated; Phase 23 suite assertions updated to the new values (drone 110 Hz, gain 0.15, footer v25.1).
+
+### Task 25.2 - Playwright verification
+- [x] Add `tests/test-phase25-music.cjs` (21 checks, port 8906): static (drone 110/110.5, gain 0.15, eerie 0.05 base, harmony 0.04, wind 0.02, old 55 Hz / 0.05 gone, footer v25.1, sw.js v5); runtime (not started before a gesture, started after a tap at gain 0.15, eerie note within ~10s, toggle off/on works at 0.15, footer v25.1 in page); 0 console errors; 0 horizontal overflow.
+- [x] Four night-time-only failures in the OLDER suites, all pre-existing test bugs (not app bugs), fixed test-only: (1) Phase 23 + Phase 21 height bound — Codex mobile tab measures 1844px after a rescue (Triple Threat progress + monster level-up add ~21px over the fresh 1823px); bound raised 1840 to 1860 in both suites, still ~2 screens. (2) Phase 24 footer assertion v24.1 -> v25.1. (3) Phase 22 title-flicker check required `titleFlicker`, but at night the title uses the `flicker` animation (day: titleFlicker, night: flicker); check now accepts either. (4) v2 night-mode check assumed one click flips the class, but at night Auto is already on so Auto -> On does not flip; check now asserts the label cycle Auto -> On -> Off -> Auto. (5) Phase 21 Codex count check expected exactly "1 / 8 captured", but a night rescue also captures the Midnight Watcher secret (2/8); check now accepts 1 or 2. Root cause of all four: the sandbox clock runs WITA, so evening runs are night-mode runs; the suites were written assuming daytime. Phase 19 passed unchanged.
+- [x] Verify: Phase 25 suite 21/21; regressions Phase 23 49/49, Phase 24 52/52, Phase 22 48/48, Phase 21 57/57, Phase 20 41/41, Phase 19 55/55, v2 27/27, Codex secrets 18/18. Total 368 checks.
+
+### Task 25.3 - Docs + deploy
+- [x] Add `tests/test-phase25-music.cjs` to the `FILES` list in `deploy_freshtrack.py`.
+- [x] README + write-up + MEMORY.md: Phase 25 noted (louder music; AI provider now Verboo in the write-up; video v2 retired, v3 in progress).
+- [x] Deploy via `deploy_freshtrack.py` (twice: the first push landed in the repo but its Pages build stayed "building" behind 4 errored builds; the second push, which added the new test file, produced a fresh build); verify live: demo 200, live app.js contains footer v25.1 (1) + `frequency.value = 110` (2 lines), live sw.js freshtrack-v5 (1), Worker health `{ ok: true, ai: true, sync: true }`.
+- [x] Video demo v3 delegated to a subagent (script update + record all Phase 20-25 features, Verboo narration, honest Kiro claim); user still to upload to YouTube Public + register/submit on Devpost.
+
+## Phase 26: MCP Server + Custom QA Agent + Property-Based Tests - 13 Nov 2026
+
+Source: user order "No 2 harus dikerjakan" = Technological Implementation (criterion 2 of the Kiroween brief). Context: Kiro plan credits exhausted (50/50, reset 1 Dec) and a probe JUST proved the 4,000 bonus credits do NOT work in Kiro CLI (MONTHLY_REQUEST_COUNT error) — so no Kiro session was available at all. All Phase 26 work done directly against this spec. Every doc stays honest about that split: never claim Kiro built this phase, never claim MCP/PBT/custom-agent were Kiro-executed. No app.js, styles.css, index.html, sw.js or Worker changes in this phase.
+
+### Task 26.1 - MCP server (mcp-server/)
+- [x] `mcp-server/server.mjs`: Node ESM, @modelcontextprotocol/sdk 1.32.2 + zod 4.6.7, stdio transport. Four tools, all hitting the LIVE Worker https://grokingstore.my.id/freshtrack-ai (never a fake/local stub): get_health (GET /api/health), get_recipe (POST /api/recipe, item + mode single|tonight), get_pantry (GET /api/pantry?code=), list_household_status (same fetch, summarised: devices, item count, names, updatedAt). Non-2xx returns a structured error with isError, never invented data. No stdout logging (stdio owns it; stderr only).
+- [x] `mcp-server/package.json` + `package-lock.json` committed; node_modules NOT committed. `npm install` run once in mcp-server/ (95 packages for the SDK, zod added explicitly).
+- [x] `mcp-server/README.md`: what it is, how to run (`node server.mjs`), how to connect from Kiro IDE/Web, honest note about the credits.
+- [x] Verify with an SDK client over stdio (local verification script, not shipped): TOOLS get_health, get_recipe, get_pantry, list_household_status; get_health -> { ok: true, ai: true, sync: true, app: 'freshtrack-ai' }; get_recipe (Bananas, single) -> "Easy Banana Pancakes", source: "ai"; get_pantry (code ZZZZZZ) -> { error: 'not_found', code: 'ZZZZZZ' } with isError true.
+
+### Task 26.2 - Kiro MCP config + custom agent (repo artifacts)
+- [x] `.kiro/settings/mcp.json`: registers the freshtrack server (command node, args mcp-server/server.mjs; read-only tools auto-approved).
+- [x] `.kiro/agents/freshtrack-qa.md`: custom QA agent definition (name, description, instructions: run the Playwright suites, report failures with file+line, never edit app code without being asked, night-mode test-bug warning). Definition file only; do not claim it was executed by Kiro.
+
+### Task 26.3 - Property-based tests (tests/test-properties.cjs, 12/12)
+- [x] Tiny seeded-RNG property runner inline (mulberry32, seed 20261113), zero new dependencies. Properties run the REAL functions extracted verbatim from app.js (brace-balanced extraction, stubs only for Date/findItemById/saveItems/announce/render/historyLog) and the exact filter expression from renderRecipeListInner over the real RECIPES bank. Fixed "today" 2026-06-15 via a stubbed Date, so results do not depend on the sandbox clock (UTC or WITA).
+- [x] 1,511 seeded random cases: freeze +14 days exact over 250 dates (2025-2027, expected via independent millisecond arithmetic); urgency monotonic over 250 offset pairs + 11 exact boundaries (rotten<=0, danger 1-2, wary 3-5, fresh>=6); recipe filter never outside the category over 250 picks; household codes never emit 0/O/1/I/L over 500 codes; Triple Threat bar never exceeds 3 over 250 random histories (counter exact, bar clamped via Math.min(3, ...)). Plus 4 static extraction checks and a browser smoke check (app loads, footer v25.1, 0 non-network console errors, port 8906 pattern).
+- [x] Suite prints a PASS count (12/12) and exits non-zero on any failure.
+
+### Task 26.4 - Docs + deploy
+- [x] README + write-up + rencana-submit: Phase 26 noted (MCP server + custom agent + PBT as repo artifacts built directly from the spec; honest Kiro split kept; bonus-credit probe result recorded; testing total 368 -> 380).
+- [x] New files added to the FILES list in deploy_freshtrack.py: mcp-server/server.mjs, mcp-server/package.json, mcp-server/package-lock.json, mcp-server/README.md, .kiro/settings/mcp.json, .kiro/agents/freshtrack-qa.md, tests/test-properties.cjs.
+- [x] Deploy via deploy_freshtrack.py; verify via GitHub API that the files landed in repo fhria5/freshtrack; verify live demo still 200 with footer v25.1 (site itself unchanged).
+- [x] Full regression: all ten suites pass together (380 checks).
+
