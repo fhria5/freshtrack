@@ -1,16 +1,18 @@
-// FreshTrack Phase 22 Playwright verification: horror design + spooky sounds.
+// FreshTrack Phase 22 Playwright verification: horror design (kept) +
+// sound effects REMOVED (user order 13 Nov 2026 ~21:25 "Efek suara gausah").
 // Run from the repo root:
 //   NODE_PATH=/home/hatch/workspace/shoppal-v2/node_modules node tests/test-phase22.cjs
 // Serves the repo on port 8904 itself and stops the server when done.
 // Design: blood-red accents, drifting mist, flickering title, glowing
 // danger/rotten cards, pulsing rescue buttons, captured Codex glow.
 // Contrast of every text token is re-checked (AA, 4.5:1) after the palette
-// change. Sounds: default ON, AudioContext runs after a gesture, Test Sound
-// button, sounds on tab switch / add / rescue / secret unlock, pref saved.
-// Audio cannot be heard in headless Chrome, so sounds are verified through
-// the window.__freshTrack hook (soundLog + audioState), not by listening.
+// change. Sound effects: NONE any more. The old playTab/playAdd/playCreak/
+// playChime/playSecret/playTestSound functions, the Sounds toggle and the
+// Test Sound button are all gone; tab/add/rescue/secret actions are
+// silent, while the background music (Phase 23) keeps playing.
 const { chromium } = require('playwright');
 const { spawn } = require('node:child_process');
+const fs = require('node:fs');
 
 const REPO = '/home/hatch/workspace/freshtrack';
 const BASE = 'http://127.0.0.1:8904/';
@@ -120,83 +122,72 @@ async function main() {
     check('reduced motion: title animation collapses', rmDur === '0.01ms' || parseFloat(rmDur) <= 0.01, rmDur);
     await rmPage.close();
 
-    // ===== Sounds: default ON on a fresh profile =====
-    const freshSounds = await page.evaluate(() => ({
-      on: window.__freshTrack.soundsOn(),
-      label: (document.querySelector('.ctrl-sounds') || {}).textContent || '',
-      pressed: (document.querySelector('.ctrl-sounds') || {}).getAttribute('aria-pressed'),
-      stored: localStorage.getItem('freshtrack.sounds'),
-      testBtn: !!document.querySelector('[data-action="test-sound"]'),
+    // ===== Sound effects REMOVED (user order 13 Nov 2026 ~21:25) =====
+    // No Sounds toggle, no Test Sound button, no sound-effect hook, and
+    // no play* calls left in the source. The background music (Phase 23)
+    // is the only audio left; it is tested in test-phase23.cjs.
+    const removed = await page.evaluate(() => ({
+      toggleSounds: document.querySelectorAll('[data-action="toggle-sounds"]').length,
+      testSound: document.querySelectorAll('[data-action="test-sound"]').length,
+      ctrlSounds: document.querySelectorAll('.ctrl-sounds').length,
+      hasSoundsOn: typeof window.__freshTrack.soundsOn,
+      hasSoundLog: typeof window.__freshTrack.soundLog,
+      hasLastSound: typeof window.__freshTrack.lastSound,
     }));
-    check('sound: default ON (fresh profile)', freshSounds.on === true, 'soundsOn=' + freshSounds.on);
-    check('sound: toggle label reads On', freshSounds.label.indexOf('On') !== -1, freshSounds.label.trim());
-    check('sound: toggle aria-pressed true', freshSounds.pressed === 'true', freshSounds.pressed);
-    check('sound: no explicit off stored', freshSounds.stored !== 'false', 'stored=' + freshSounds.stored);
-    check('sound: Test Sound button exists', freshSounds.testBtn === true);
+    check('removed: no Sounds toggle in DOM', removed.toggleSounds === 0, 'count=' + removed.toggleSounds);
+    check('removed: no Test Sound button in DOM', removed.testSound === 0, 'count=' + removed.testSound);
+    check('removed: no .ctrl-sounds element', removed.ctrlSounds === 0, 'count=' + removed.ctrlSounds);
+    check('removed: hook no longer exposes soundsOn', removed.hasSoundsOn === 'undefined', removed.hasSoundsOn);
+    check('removed: hook no longer exposes soundLog', removed.hasSoundLog === 'undefined', removed.hasSoundLog);
+    check('removed: hook no longer exposes lastSound', removed.hasLastSound === 'undefined', removed.hasLastSound);
 
-    // ===== Test Sound button: plays test sound, AudioContext runs =====
-    await page.click('[data-action="test-sound"]');
-    await page.waitForTimeout(600);
-    const afterTest = await page.evaluate(() => ({
-      last: window.__freshTrack.lastSound(),
-      state: window.__freshTrack.audioState(),
-    }));
-    check('sound: Test Sound logs a test sound', afterTest.last && afterTest.last.name === 'test', JSON.stringify(afterTest.last));
-    check('sound: AudioContext running after gesture', afterTest.state === 'running', afterTest.state);
+    const src = fs.readFileSync(REPO + '/app.js', 'utf-8');
+    const banned = ['playTab(', 'playAdd(', 'playCreak(', 'playChime(', 'playSecret(', 'playTestSound(', 'toggle-sounds', 'test-sound', 'SOUNDS_KEY', 'soundsEnabled', 'loadSoundsEnabled', 'saveSoundsEnabled'];
+    for (const token of banned) {
+      check('removed: app.js has no "' + token + '"', src.indexOf(token) === -1, src.indexOf(token) === -1 ? '' : 'found at ' + src.indexOf(token));
+    }
 
-    // ===== Toggle off: pref saved, sounds stop; toggle on: confirmation sound =====
-    await page.click('[data-action="toggle-sounds"]');
-    await page.waitForTimeout(200);
-    const offState = await page.evaluate(() => ({
-      on: window.__freshTrack.soundsOn(),
-      label: (document.querySelector('.ctrl-sounds') || {}).textContent || '',
-      stored: localStorage.getItem('freshtrack.sounds'),
-    }));
-    check('sound: toggle off saves pref false', offState.on === false && offState.stored === 'false', JSON.stringify(offState));
-    await page.click('[data-action="toggle-sounds"]');
-    await page.waitForTimeout(300);
-    const onState = await page.evaluate(() => ({
-      on: window.__freshTrack.soundsOn(),
-      stored: localStorage.getItem('freshtrack.sounds'),
-      last: window.__freshTrack.lastSound(),
-    }));
-    check('sound: toggle on plays confirmation sound', onState.on === true && onState.last && onState.last.name === 'test', JSON.stringify(onState.last));
-
-    // ===== Tab switch plays a sound =====
+    // ===== Actions still work, and stay silent (music log has no effects) =====
+    // The first click is the user gesture that starts the music.
     await page.click('.bottom-nav [data-tab="codex"]');
-    await page.waitForTimeout(300);
-    const tabSound = await page.evaluate(() => window.__freshTrack.lastSound());
-    check('sound: tab switch logs a tab sound', tabSound && tabSound.name === 'tab', JSON.stringify(tabSound));
+    await page.waitForTimeout(500);
     const codexVisible = await page.evaluate(() => !document.getElementById('panel-codex').hidden && document.getElementById('panel-pantry').hidden);
     check('tabs: Codex visible, Pantry hidden after switch', codexVisible === true);
+    const musicAfterTab = await page.evaluate(() => ({
+      started: window.__freshTrack.musicStarted(),
+      log: window.__freshTrack.musicLog().map((e) => e.name),
+    }));
+    check('music: starts on first gesture (tab switch)', musicAfterTab.started === true, JSON.stringify(musicAfterTab));
+    check('removed: tab switch logs no effect sound', musicAfterTab.log.every((n) => n.indexOf('music-') === 0), musicAfterTab.log.join(','));
 
     // Back to Pantry for the item tests.
     await page.click('.bottom-nav [data-tab="pantry"]');
     await page.waitForTimeout(300);
 
-    // ===== Add a fresh item: pop sound =====
+    // ===== Add a fresh item: still works, no pop sound =====
     const future = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
     await page.fill('#item-name', 'Test Lettuce');
     await page.fill('#item-expiry', future);
     await page.click('.btn-submit');
     await page.waitForTimeout(300);
-    const addSound = await page.evaluate(() => window.__freshTrack.lastSound());
-    check('sound: adding a fresh item logs an add sound', addSound && addSound.name === 'add', JSON.stringify(addSound));
+    const addOk = await page.evaluate(() => document.querySelectorAll('.card').length >= 1);
+    check('pantry: adding a fresh item works', addOk === true);
 
-    // ===== Rescue it: chime sound =====
+    // ===== Rescue it: still works, no chime sound =====
+    const beforeRescue = await page.evaluate(() => document.querySelectorAll('.card').length);
     await page.click('.card[data-id] .btn-rescue');
     await page.waitForTimeout(300);
-    const rescueSound = await page.evaluate(() => window.__freshTrack.lastSound());
-    check('sound: rescue logs a chime sound', rescueSound && rescueSound.name === 'chime', JSON.stringify(rescueSound));
+    const afterRescue = await page.evaluate(() => document.querySelectorAll('.card').length);
+    check('pantry: rescue removes the item', afterRescue === beforeRescue - 1, beforeRescue + ' -> ' + afterRescue);
 
-    // ===== Danger add: creak sound =====
+    // ===== Danger add: still works, no creak sound =====
     const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
     await page.fill('#item-name', 'Test Milk');
     await page.fill('#item-expiry', tomorrow);
     await page.click('.btn-submit');
     await page.waitForTimeout(300);
-    const creakSound = await page.evaluate(() => window.__freshTrack.lastSound());
-    check('sound: adding a danger item logs a creak sound', creakSound && creakSound.name === 'creak', JSON.stringify(creakSound));
+    const dangerOk = await page.evaluate(() => !!document.querySelector('.card[data-urgency="danger"]'));
+    check('pantry: adding a danger item works', dangerOk === true);
 
     // ===== Danger card horror styling =====
     const dangerFx = await page.evaluate(() => {
@@ -217,9 +208,9 @@ async function main() {
     check('design: rescue button pulses on danger card', dangerFx && dangerFx.rescueAnim.indexOf('rescuePulse') !== -1, dangerFx && dangerFx.rescueAnim);
     check('design: danger monster glows red', dangerFx && dangerFx.monsterFilter.indexOf('drop-shadow') !== -1, dangerFx && dangerFx.monsterFilter);
 
-    // ===== Secret unlock: shimmer sound (Triple Threat = 3 rescues in a day) =====
-    // Two rescues already happened today (Lettuce + Milk is still in the
-    // fridge; rescue Milk plus one more demo item to reach 3).
+    // ===== Secret unlock still works (Triple Threat = 3 rescues in a day) =====
+    // One rescue already happened today (Lettuce); rescue Milk plus one
+    // more demo item to reach 3.
     await page.click('[data-action="summon-demo"]');
     await page.waitForTimeout(300);
     // Rescue Milk (danger) -> 2nd rescue today.
@@ -228,8 +219,6 @@ async function main() {
     // Rescue one demo item -> 3rd rescue today, Triple Threat unlocks.
     const anyRescue = await page.$('.card .btn-rescue');
     if (anyRescue) { await anyRescue.click(); await page.waitForTimeout(400); }
-    const log = await page.evaluate(() => window.__freshTrack.soundLog().map((s) => s.name));
-    check('sound: secret unlock logs a secret sound', log.indexOf('secret') !== -1, log.join(','));
     const secretCard = await page.evaluate(() => {
       const el = document.querySelector('.codex-card.secret[data-state="captured"]');
       return !!el;
@@ -246,21 +235,9 @@ async function main() {
     });
     check('design: captured Codex card glows', codexGlow.indexOf('224, 164, 74') !== -1, codexGlow.slice(0, 80));
 
-    // ===== Pref survives reload =====
-    await page.click('.bottom-nav [data-tab="pantry"]');
-    await page.waitForTimeout(200);
-    await page.click('[data-action="toggle-sounds"]'); // turn off
-    await page.waitForTimeout(200);
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(300);
-    const persisted = await page.evaluate(() => ({
-      on: window.__freshTrack.soundsOn(),
-      label: (document.querySelector('.ctrl-sounds') || {}).textContent || '',
-    }));
-    check('sound: off pref survives reload', persisted.on === false && persisted.label.indexOf('Off') !== -1, JSON.stringify(persisted));
-    // Turn it back on for the next visitor.
-    await page.click('[data-action="toggle-sounds"]');
-    await page.waitForTimeout(200);
+    // ===== No effect sounds anywhere in the music log =====
+    const finalLog = await page.evaluate(() => window.__freshTrack.musicLog().map((e) => e.name));
+    check('removed: music log holds only music events', finalLog.length > 0 && finalLog.every((n) => n.indexOf('music-') === 0), finalLog.join(','));
 
     // ===== No console errors overall =====
     check('0 console errors during Phase 22 checks', errors.length === 0, errors.slice(0, 3).join(' ; '));
