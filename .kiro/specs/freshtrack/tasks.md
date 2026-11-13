@@ -307,21 +307,21 @@ Implementation tasks for the FreshTrack app. Each task is self-contained and ver
 - [x] If the installed CLI genuinely has no working hook mechanism, say so plainly in the result and in the README (do not fake it).
 
 ### Task 16.3 — Ship steering and hooks in the repo
-- [ ] Add `.kiro/steering/*.md` and the hook file(s) to the `FILES` list in `deploy_freshtrack.py`, plus `worker/worker.js`, so the Kiro evidence ships in the public repo.
-- [ ] Verify: after deploy, the steering files and hook file are reachable in the GitHub repo.
+- [x] Add `.kiro/steering/*.md` and the hook file(s) to the `FILES` list in `deploy_freshtrack.py`, plus `worker/worker.js`, so the Kiro evidence ships in the public repo.
+- [x] Verify: after deploy, the steering files and hook file are reachable in the GitHub repo.
 
 ## Phase 17: README + Final Verification (v2)
 
 ### Task 17.1 — README update
-- [ ] Expand the "Built with Kiro" section: spec-driven development (Phases 1-17), steering docs, the working hook, AI recipes via the Gemini proxy Worker (with rule-based fallback), and the 25-recipe bank with category filters.
-- [ ] Document the new features: AI Recipe button, Cook Tonight mode, recipe category filters, and the Worker endpoint (noting the Worker returns a tidy 503 until `GEMINI_API_KEY` is installed).
-- [ ] Keep the MIT license unchanged.
-- [ ] Verify: README renders correctly; no em dash in new text.
+- [x] Expand the "Built with Kiro" section: spec-driven development (Phases 1-17), steering docs, the working hook, AI recipes via the Gemini proxy Worker (with rule-based fallback), and the 25-recipe bank with category filters.
+- [x] Document the new features: AI Recipe button, Cook Tonight mode, recipe category filters, and the Worker endpoint (noting the Worker returns a tidy 503 until `GEMINI_API_KEY` is installed).
+- [x] Keep the MIT license unchanged.
+- [x] Verify: README renders correctly; no em dash in new text.
 
 ### Task 17.2 — Final verification
-- [ ] `node --check app.js`, `node --check recipes.js`, `node --check worker/worker.js` all pass.
-- [ ] Grep for em dash in all changed files returns nothing; emoji check on changed files passes.
-- [ ] Playwright mobile 390px + desktop 1280px: 0 console errors, 0 targets under 44px, 0 horizontal overflow.
-- [ ] Playwright flow: add item, AI Recipe (falls back cleanly while the secret is absent), rescue, Codex XP gain, streak, night mode, photo upload.
-- [ ] Deploy via `deploy_freshtrack.py`; verify live from GitHub Pages (curl fresh styles.css/app.js content + repo blob SHA equals local).
-- [ ] Report credit usage before vs after (from `kiro-cli chat /usage`).
+- [x] `node --check app.js`, `node --check recipes.js`, `node --check worker/worker.js` all pass.
+- [x] Grep for em dash in all changed files returns nothing; emoji check on changed files passes.
+- [x] Playwright mobile 390px + desktop 1280px: 0 console errors, 0 targets under 44px, 0 horizontal overflow.
+- [x] Playwright flow: add item, AI Recipe (falls back cleanly while the secret is absent), rescue, Codex XP gain, streak, night mode, photo upload.
+- [x] Deploy via `deploy_freshtrack.py`; verify live from GitHub Pages (curl fresh styles.css/app.js content + repo blob SHA equals local).
+- [x] Report credit usage before vs after (from `kiro-cli chat /usage`).
