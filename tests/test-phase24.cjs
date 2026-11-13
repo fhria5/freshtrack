@@ -25,8 +25,11 @@ function check(name, ok, detail) {
 }
 
 function iso(offsetDays) {
-  const d = new Date(Date.now() + offsetDays * 86400000);
-  return d.toISOString().slice(0, 10);
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return d.getFullYear() + '-' + m + '-' + day;
 }
 
 async function freezeByName(page, name) {
@@ -99,9 +102,9 @@ async function main() {
     check('codex: secretProgressHtml exists', src.indexOf('function secretProgressHtml(') !== -1);
     check('codex: unlock conditions unchanged (3 rescues)', src.indexOf('if (n >= 3) unlockSecret(\'secretDanger\')') !== -1);
     check('codex: unlock conditions unchanged (Void King)', src.indexOf('if (tonightPlanOpen) unlockSecret(\'secretRotten\')') !== -1);
-    check('version: footer v25.1', src.indexOf('FreshTrack v25.1') !== -1);
+    check('version: footer v27.1', src.indexOf('FreshTrack v27.1') !== -1);
     check('version: no v23.1 left', src.indexOf('v23.1') === -1);
-    check('cache: sw.js freshtrack-v5', fs.readFileSync(REPO + '/sw.js', 'utf-8').indexOf('freshtrack-v5') !== -1);
+    check('cache: sw.js freshtrack-v6', fs.readFileSync(REPO + '/sw.js', 'utf-8').indexOf('freshtrack-v6') !== -1);
     check('css: btn-freeze styled', fs.readFileSync(REPO + '/styles.css', 'utf-8').indexOf('.btn-freeze') !== -1);
     for (const token of ['playTab(', 'playAdd(', 'playCreak(', 'playChime(', 'playSecret(', 'playTestSound(']) {
       check('removed: app.js has no "' + token + '"', src.indexOf(token) === -1);
