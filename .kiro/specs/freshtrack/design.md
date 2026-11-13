@@ -225,3 +225,34 @@ A centered block: large skull emoji 💀, the line "Your fridge is eerily empty.
 - No dark/light theme toggle (the app is always dark/horror-themed).
 - No item editing (delete and re-add instead).
 - No quantity or notes fields on items.
+
+## v2 Additions (13 Nov 2026)
+
+### New Architecture: AI via Gemini Proxy Worker
+
+```
+Browser (fhria5.github.io/freshtrack)
+   │  POST /api/recipe { ingredients, mode }   (15s timeout)
+   ▼
+Cloudflare Worker (classic, no deps)
+   grokingstore.my.id/freshtrack-ai/*
+   │  no GEMINI_API_KEY  → 503 { error: 'ai_unavailable' }
+   │  key present        → Gemini 3.5 Flash Lite (strict JSON)
+   ▼
+App renders AI recipe, or falls back to the rule-based bank.
+```
+
+The Worker is a classic service worker script (`worker/worker.js`), deployed with a PUT-only script (`worker/deploy_worker.py`); it never PATCHes settings. Rate limit 30 req/IP/min. CORS allowlist: the Pages demo origin plus localhost.
+
+### New Components
+
+- **AI Recipe button** on every item card; loading state announced via `#sr-announcer`; result cached in memory per item name.
+- **Cook Tonight** button in the controls strip; builds one plan from all Danger/Rotten items; fallback ranks rule-based recipes by urgent-item coverage.
+- **Recipe filter chips** (All, Breakfast, Lunch, Snack, Dinner) in the recipe list, `aria-pressed` state.
+- **Kiro steering** (`.kiro/steering/product.md`, `tech.md`, `structure.md`) and one working Kiro hook (format as supported by the installed Kiro CLI, verified registered).
+
+### Data Model Additions
+
+- Recipe gains a `category` field: `Breakfast` | `Lunch` | `Snack` | `Dinner`.
+- AI recipe shape from the Worker: `{ title, ingredients[], steps[], timeMinutes }`, rendered with an "AI-generated" badge.
+- No new localStorage keys in v2. Existing keys and the Codex migration (`{ level: { captured, count } }` from the old boolean shape) are preserved untouched.
