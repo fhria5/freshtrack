@@ -30,6 +30,10 @@
   var tonightLoading = false;       // Cook Tonight request in flight
   var audioCtx = null;              // lazily-created Web Audio context
   var navObserver = null;           // IntersectionObserver for bottom-nav active state
+  var syncState = { code: null, deviceId: null, updatedAt: 0, lastSyncAt: 0, status: 'off', devices: 0 };
+  var syncTimer = null;             // debounce timer for cloud pushes
+  var syncInFlight = false;         // a push/pull is in flight
+  var applyingRemote = false;       // true while adopting a server pantry (blocks push-back)
 
   // ===== Constants =====
   var STORAGE_KEY = 'freshtrack.items';
@@ -41,6 +45,11 @@
   var NIGHT_KEY = 'freshtrack.nightmode';
   var AI_API_URL = 'https://grokingstore.my.id/freshtrack-ai/api/recipe';
   var AI_TIMEOUT_MS = 15000;        // AI request timeout (ms)
+  var SYNC_API_URL = 'https://grokingstore.my.id/freshtrack-ai/api/pantry';
+  var SYNC_TIMEOUT_MS = 10000;      // cloud sync request timeout (ms)
+  var SYNC_DEBOUNCE_MS = 1500;      // wait after a mutation before pushing
+  var SYNC_KEY = 'freshtrack.sync'; // { code, deviceId, updatedAt, lastSyncAt, status, devices }
+  var CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // household codes skip 0/O/1/I/L
   var MAX_LEVEL = 5;                // monster level cap
   var RESCUES_PER_LEVEL = 3;        // rescues needed per level-up
   var MAX_PHOTOS = 20;              // cap stored item photos (localStorage budget)
@@ -178,6 +187,7 @@
     } catch (e) {
       alert('FreshTrack: storage is full! Could not save your items.');
     }
+    scheduleCloudSync();
   }
 
   function loadSoulsSaved() {
@@ -197,6 +207,7 @@
     } catch (e) {
       /* silent — souls counter is non-critical */
     }
+    scheduleCloudSync();
   }
 
   function incrementSouls() {
@@ -224,6 +235,7 @@
     } catch (e) {
       /* silent — impact log is non-critical */
     }
+    scheduleCloudSync();
   }
 
   // Records a rescued or wasted event. Rescued items count as saved; items
@@ -303,6 +315,328 @@
     } catch (e) {
       /* silent — codex is non-critical */
     }
+    scheduleCloudSync();
+  }
+
+  // ===== Cloud Sync + Haunted Household (Phase 20) =====
+  // Server pantry storage lives in the freshtrack-ai Worker (PANTRY_KV).
+  // A household is an anonymous 6-char code: no login, no personal
+  // data. localStorage stays the offline source of truth: the app only
+  // adopts a server copy when it is newer, and pushes local changes
+  // (debounced) after every mutation. Photos stay local-only, they
+  // would blow the 64KB server cap. Sync failures are silent: the app
+  // keeps working offline and retries on the next change.
+
+  function loadSync() {
+    var fresh = { code: null, deviceId: null, updatedAt: 0, lastSyncAt: 0, status: 'off', devices: 0 };
+    try {
+      var raw = localStorage.getItem(SYNC_KEY);
+      if (!raw) return fresh;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return fresh;
+      if (typeof parsed.code === 'string' && /^[A-Z0-9]{6}$/.test(parsed.code)) fresh.code = parsed.code;
+      if (typeof parsed.deviceId === 'string' && parsed.deviceId) fresh.deviceId = parsed.deviceId;
+      if (typeof parsed.updatedAt === 'number') fresh.updatedAt = parsed.updatedAt;
+      if (typeof parsed.lastSyncAt === 'number') fresh.lastSyncAt = parsed.lastSyncAt;
+      if (typeof parsed.devices === 'number') fresh.devices = parsed.devices;
+      return fresh;
+    } catch (e) {
+      return fresh;
+    }
+  }
+
+  function saveSync() {
+    try {
+      localStorage.setItem(SYNC_KEY, JSON.stringify(syncState));
+    } catch (e) {
+      /* silent - sync metadata is non-critical */
+    }
+  }
+
+  function generateDeviceId() {
+    var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    var out = 'd-';
+    for (var i = 0; i < 20; i++) {
+      out += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return out;
+  }
+
+  function generateHouseholdCode() {
+    var code = '';
+    for (var i = 0; i < 6; i++) {
+      code += CODE_CHARS.charAt(Math.floor(Math.random() * CODE_CHARS.length));
+    }
+    return code;
+  }
+
+  // Small fetch helper with a timeout; resolves { status, data } where
+  // data is parsed JSON or null. Rejects on network error or timeout.
+  function fetchJson(url, options, timeoutMs) {
+    var ctrl = null;
+    var timer = null;
+    if (typeof AbortController !== 'undefined') {
+      ctrl = new AbortController();
+      timer = setTimeout(function () { ctrl.abort(); }, timeoutMs);
+      options.signal = ctrl.signal;
+    }
+    return fetch(url, options).then(function (resp) {
+      if (timer) clearTimeout(timer);
+      return resp.json().catch(function () { return null; }).then(function (data) {
+        return { status: resp.status, data: data };
+      });
+    }).catch(function (err) {
+      if (timer) clearTimeout(timer);
+      throw err;
+    });
+  }
+
+  // The pantry as the server sees it: plain data only, photos stripped.
+  function collectPantry() {
+    var cleanItems = items.map(function (it) {
+      return {
+        id: String(it.id || ''),
+        name: String(it.name || '').slice(0, 120),
+        category: String(it.category || 'other'),
+        expiryDate: String(it.expiryDate || '')
+      };
+    });
+    var codex = {};
+    var levels = ['fresh', 'wary', 'danger', 'rotten'];
+    for (var i = 0; i < levels.length; i++) {
+      var lv = levels[i];
+      codex[lv] = { captured: !!capturedMonsters[lv], count: monsterCounts[lv] || 0 };
+    }
+    codex.secrets = {};
+    for (var s = 0; s < SECRET_KEYS.length; s++) {
+      codex.secrets[SECRET_KEYS[s]] = !!secretCaptured[SECRET_KEYS[s]];
+    }
+    return {
+      items: cleanItems,
+      soulsSaved: soulsSaved,
+      history: historyLog.slice(-500),
+      codex: codex,
+      streak: { count: streakState.count, lastDate: streakState.lastDate }
+    };
+  }
+
+  // Replace local state with a server pantry (photos already on this
+  // device are kept: server items never carry photos).
+  function applyPantry(p, updatedAt) {
+    if (!p || !Array.isArray(p.items)) return false;
+    applyingRemote = true;
+    try {
+      var photosById = {};
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].id && items[i].photo) photosById[items[i].id] = items[i].photo;
+      }
+      items = p.items.filter(function (it) {
+        return it && typeof it.name === 'string' && it.name &&
+          typeof it.expiryDate === 'string' && it.expiryDate;
+      }).map(function (it) {
+        var copy = {
+          id: String(it.id || generateId()),
+          name: String(it.name).slice(0, 120),
+          category: String(it.category || 'other'),
+          expiryDate: String(it.expiryDate)
+        };
+        if (photosById[copy.id]) copy.photo = photosById[copy.id];
+        return copy;
+      });
+      soulsSaved = (typeof p.soulsSaved === 'number' && p.soulsSaved >= 0) ? Math.floor(p.soulsSaved) : 0;
+      historyLog = Array.isArray(p.history) ? p.history.slice(-500) : [];
+      if (p.codex && typeof p.codex === 'object') {
+        var levels = ['fresh', 'wary', 'danger', 'rotten'];
+        for (var l = 0; l < levels.length; l++) {
+          var lv = levels[l];
+          var entry = p.codex[lv];
+          if (entry && typeof entry === 'object') {
+            capturedMonsters[lv] = !!entry.captured;
+            monsterCounts[lv] = (typeof entry.count === 'number' && entry.count >= 0) ? Math.floor(entry.count) : 0;
+          }
+        }
+        if (p.codex.secrets && typeof p.codex.secrets === 'object') {
+          for (var s = 0; s < SECRET_KEYS.length; s++) {
+            var sk = SECRET_KEYS[s];
+            if (typeof p.codex.secrets[sk] === 'boolean') secretCaptured[sk] = p.codex.secrets[sk];
+          }
+        }
+      }
+      if (p.streak && typeof p.streak === 'object') {
+        streakState = {
+          count: (typeof p.streak.count === 'number' && p.streak.count >= 0) ? Math.floor(p.streak.count) : 0,
+          lastDate: (typeof p.streak.lastDate === 'string') ? p.streak.lastDate : null
+        };
+      }
+      saveItems();
+      saveSoulsSaved();
+      saveHistory();
+      saveCodex();
+      saveStreak();
+      syncState.updatedAt = (typeof updatedAt === 'number') ? updatedAt : Date.now();
+      saveSync();
+    } finally {
+      applyingRemote = false;
+    }
+    render();
+    return true;
+  }
+
+  // Updates only the status line in place (no full re-render, so typing
+  // and focus elsewhere on the page are never disturbed).
+  function updateSyncStatus() {
+    var el = document.getElementById('household-status');
+    if (el) el.textContent = syncStatusText();
+  }
+
+  function syncStatusText() {
+    if (!syncState.code) return '';
+    if (syncState.status === 'synced') {
+      var dev = syncState.devices > 0
+        ? ' · ' + syncState.devices + (syncState.devices === 1 ? ' device' : ' devices') + ' in this household'
+        : '';
+      return 'Synced' + dev + '.';
+    }
+    if (syncState.status === 'syncing') return 'Syncing...';
+    if (syncState.status === 'offline') return 'Offline. Your pantry is safe on this device and will sync when you are back online.';
+    if (syncState.status === 'not-found') return 'Household not found on the server. Your pantry is safe on this device.';
+    return 'Sync failed. Your pantry is safe on this device.';
+  }
+
+  // Push local state to the server (debounced). A 409 means the server
+  // copy is newer, so adopt it instead of overwriting it.
+  function pushPantry() {
+    if (!syncState.code || syncInFlight) return;
+    syncInFlight = true;
+    syncState.status = 'syncing';
+    updateSyncStatus();
+    var payload = {
+      code: syncState.code,
+      deviceId: syncState.deviceId,
+      pantry: collectPantry(),
+      updatedAt: Date.now()
+    };
+    fetchJson(SYNC_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }, SYNC_TIMEOUT_MS).then(function (res) {
+      if (res.status === 200 && res.data) {
+        syncState.updatedAt = payload.updatedAt;
+        syncState.lastSyncAt = Date.now();
+        syncState.devices = (typeof res.data.devices === 'number') ? res.data.devices : syncState.devices;
+        syncState.status = 'synced';
+        saveSync();
+      } else if (res.status === 409 && res.data && res.data.pantry) {
+        syncState.devices = (typeof res.data.devices === 'number') ? res.data.devices : syncState.devices;
+        syncState.status = 'synced';
+        applyPantry(res.data.pantry, res.data.updatedAt);
+        announce('Household pantry updated from the server.');
+      } else {
+        syncState.status = 'offline';
+      }
+    }).catch(function () {
+      syncState.status = 'offline';
+    }).then(function () {
+      syncInFlight = false;
+      saveSync();
+      updateSyncStatus();
+    });
+  }
+
+  function scheduleCloudSync() {
+    if (applyingRemote || !syncState.code) return;
+    if (syncTimer) clearTimeout(syncTimer);
+    syncTimer = setTimeout(pushPantry, SYNC_DEBOUNCE_MS);
+  }
+
+  // Pull the server copy once (on load). Adopts it only when newer.
+  function pullPantry() {
+    if (!syncState.code || syncInFlight) return;
+    syncInFlight = true;
+    fetchJson(SYNC_API_URL + '?code=' + encodeURIComponent(syncState.code), { method: 'GET' }, SYNC_TIMEOUT_MS).then(function (res) {
+      if (res.status === 200 && res.data && res.data.pantry) {
+        syncState.devices = (typeof res.data.devices === 'number') ? res.data.devices : syncState.devices;
+        if (typeof res.data.updatedAt === 'number' && res.data.updatedAt > syncState.updatedAt) {
+          applyPantry(res.data.pantry, res.data.updatedAt);
+          announce('Household pantry updated from the server.');
+        }
+        syncState.status = 'synced';
+        syncState.lastSyncAt = Date.now();
+      } else if (res.status === 404) {
+        syncState.status = 'not-found';
+      } else {
+        syncState.status = 'offline';
+      }
+    }).catch(function () {
+      syncState.status = 'offline';
+    }).then(function () {
+      syncInFlight = false;
+      saveSync();
+      updateSyncStatus();
+    });
+  }
+
+  function showHouseholdError(message) {
+    var el = document.getElementById('household-error');
+    if (el) el.textContent = message;
+    announce(message);
+  }
+
+  function createHousehold() {
+    var code = generateHouseholdCode();
+    syncState.code = code;
+    syncState.deviceId = syncState.deviceId || generateDeviceId();
+    syncState.updatedAt = Date.now();
+    syncState.status = 'syncing';
+    saveSync();
+    render();
+    pushPantry();
+    announce('Household created. Code ' + code.split('').join(' ') + '. Share it with your household.');
+  }
+
+  function joinHousehold(code) {
+    syncState.deviceId = syncState.deviceId || generateDeviceId();
+    fetchJson(SYNC_API_URL + '?code=' + encodeURIComponent(code), { method: 'GET' }, SYNC_TIMEOUT_MS).then(function (res) {
+      if (res.status === 404) {
+        showHouseholdError('Household not found. Check the code and try again.');
+        return;
+      }
+      if (res.status !== 200 || !res.data || !res.data.pantry) {
+        showHouseholdError('Could not reach the server. Check your connection and try again.');
+        return;
+      }
+      syncState.code = code;
+      syncState.devices = (typeof res.data.devices === 'number') ? res.data.devices : 0;
+      syncState.status = 'synced';
+      syncState.lastSyncAt = Date.now();
+      saveSync();
+      applyPantry(res.data.pantry, res.data.updatedAt);
+      render();
+      announce('Joined household ' + code + '. Pantry updated from the server.');
+    }).catch(function () {
+      showHouseholdError('Could not reach the server. Check your connection and try again.');
+    });
+  }
+
+  function leaveHousehold() {
+    if (syncTimer) clearTimeout(syncTimer);
+    syncState.code = null;
+    syncState.status = 'off';
+    syncState.devices = 0;
+    saveSync();
+    render();
+    announce('Left the household. Your pantry stays on this device.');
+  }
+
+  function copyHouseholdCode() {
+    if (!syncState.code) return;
+    var done = function () { announce('Household code copied.'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(syncState.code).then(done, function () { announce('Household code: ' + syncState.code); });
+    } else {
+      announce('Household code: ' + syncState.code);
+    }
   }
 
   // Monster level: 1 + one level per 3 rescues at that urgency, capped at 5.
@@ -378,6 +712,7 @@
     } catch (e) {
       /* silent — streak is non-critical */
     }
+    scheduleCloudSync();
   }
 
   // Call on every rescue: same day = no change, yesterday = +1, gap = reset to 1.
@@ -560,6 +895,7 @@
     app.innerHTML =
       renderHeader() +
       renderControls() +
+      renderHousehold() +
       renderForm() +
       renderChallenge() +
       renderTodaysHorrors() +
@@ -1082,6 +1418,37 @@
           '\uD83D\uDCC5 Weekly Recap' +
         '</button>' +
       '</div>';
+  }
+
+  // ===== Haunted Household (Phase 20) =====
+  // One shared pantry per anonymous 6-char code. No account, no
+  // personal data: the code is the only key to the pantry.
+
+  function renderHousehold() {
+    if (!syncState.code) {
+      return '' +
+        '<section class="household-section" aria-label="Haunted Household">' +
+          '<h2 class="section-title">\uD83C\uDFE0 Haunted Household</h2>' +
+          '<p class="section-sub">Share one pantry with your whole household. No account, just a secret code.</p>' +
+          '<div class="household-join">' +
+            '<label for="household-code-input" class="sr-only">Household code</label>' +
+            '<input type="text" id="household-code-input" placeholder="ABC123" maxlength="6" autocomplete="off" aria-describedby="household-error">' +
+            '<button type="button" class="btn-household" data-action="join-household">Join Household</button>' +
+            '<button type="button" class="btn-household btn-household-create" data-action="create-household">Create One</button>' +
+          '</div>' +
+          '<p class="error-msg" id="household-error" role="alert"></p>' +
+          '<p class="field-hint">Your pantry stays on this device until you join or create a household. Photos stay on this device only.</p>' +
+        '</section>';
+    }
+    return '' +
+      '<section class="household-section" aria-label="Haunted Household">' +
+        '<h2 class="section-title">\uD83C\uDFE0 Haunted Household</h2>' +
+        '<p class="household-code-row">Household code: <strong class="household-code">' + escapeHtml(syncState.code) + '</strong> ' +
+          '<button type="button" class="btn-household btn-household-copy" data-action="copy-household-code">Copy Code</button></p>' +
+        '<p class="household-status" id="household-status" role="status">' + syncStatusText() + '</p>' +
+        '<p class="field-hint">Share the code with your household. Everyone sees the same pantry.</p>' +
+        '<button type="button" class="btn-household btn-household-leave" data-action="leave-household">Leave Household</button>' +
+      '</section>';
   }
 
   // ===== Today's Challenge (rescue 1 item today) =====
@@ -1743,6 +2110,28 @@
     } else if (action === 'cook-tonight') {
       e.preventDefault();
       handleCookTonight();
+
+    } else if (action === 'create-household') {
+      e.preventDefault();
+      createHousehold();
+
+    } else if (action === 'join-household') {
+      e.preventDefault();
+      var codeInput = document.getElementById('household-code-input');
+      var code = codeInput ? codeInput.value.trim().toUpperCase() : '';
+      if (!/^[A-Z0-9]{6}$/.test(code)) {
+        showHouseholdError('Enter the 6-character household code, like ABC123.');
+      } else {
+        joinHousehold(code);
+      }
+
+    } else if (action === 'leave-household') {
+      e.preventDefault();
+      leaveHousehold();
+
+    } else if (action === 'copy-household-code') {
+      e.preventDefault();
+      copyHouseholdCode();
     }
   }
 
@@ -2089,6 +2478,17 @@
     }
   }
 
+  // ===== Installable App (PWA, Phase 20) =====
+  // Registers the offline service worker. Best effort only: if it
+  // fails (old browser, file:// URL), the app keeps working online.
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    if (window.location.protocol !== 'http:' && window.location.protocol !== 'https:') return;
+    try {
+      navigator.serviceWorker.register('sw.js').catch(function () { /* optional */ });
+    } catch (e) { /* optional */ }
+  }
+
   // ===== Countdown Refresh =====
 
   function checkDayChange() {
@@ -2117,9 +2517,14 @@
     streakState = loadStreak();
     soundsEnabled = loadSoundsEnabled();
     nightPref = loadNightPref();
+    syncState = loadSync();
     applyNightMode();
     createBottomNav();
     render();
+    registerServiceWorker();
+    // If this device already belongs to a household, pull the server
+    // copy once (adopts it only when it is newer than local data).
+    if (syncState.code) pullPantry();
 
     var app = document.getElementById('app');
     app.addEventListener('submit', handleFormSubmit);
