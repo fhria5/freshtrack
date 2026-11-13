@@ -109,8 +109,10 @@ exposes the same live Worker through four read-only tools
 and verified live with an SDK client.
 
 Tests: 380 Playwright checks (v2 + Codex + Phases 19–25) plus a
-property suite of 12 checks over 1,511 seeded random cases
-(`tests/test-properties.cjs`).
+property suite of 12 checks over 1,511 seeded random cases: 10 pure
+checks in `tests/test-properties.cjs` (plain `node`, no Playwright —
+runs in the Kiro Web sandbox) and 2 browser smoke checks in
+`tests/test-properties-browser.cjs`.
 
 ## Built with Kiro
 
@@ -174,7 +176,9 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    Playwright suites and reports failures with file and line.
    `tests/test-properties.cjs` checks app invariants over 1,511 seeded
    random cases (freeze +14 days, urgency monotonicity and boundaries,
-   recipe filter, household-code charset, Triple Threat cap). All three
+   recipe filter, household-code charset, Triple Threat cap); its 10 pure
+   checks need only plain `node`, and the 2 browser smoke checks live in
+   `tests/test-properties-browser.cjs`. All three
    were built directly from the Kiro spec after the plan credits ran
    out — Kiro did not execute them, and the Devpost write-up says so.
 6. **Verification** — urgency boundaries (11/11), recipe matching, and
