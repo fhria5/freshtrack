@@ -374,6 +374,37 @@ select option {
   transform: translateY(0);
 }
 
+.btn-add-toggle {
+  width: 100%;
+  min-height: var(--tap-target);
+  padding: 0.625rem;
+  background-color: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-spooky);
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+.btn-add-toggle::after {
+  content: " \25BE";
+}
+
+.btn-add-toggle[aria-expanded="true"]::after {
+  content: " \25B4";
+}
+
+.btn-add-toggle:hover,
+.btn-add-toggle:focus-visible {
+  border-color: var(--accent-wary);
+}
+
+#add-item-form {
+  margin-top: 0.75rem;
+}
+
 .btn-demo {
   width: 100%;
   min-height: var(--tap-target);

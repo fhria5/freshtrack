@@ -118,6 +118,7 @@ async function main() {
     await page.click('#navtab-pantry');
     await page.waitForTimeout(300);
     const future = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
+    if ((await page.getAttribute('#add-item-toggle', 'aria-expanded')) === 'false') await page.click('#add-item-toggle');
     await page.fill('#item-name', 'Test Lettuce');
     await page.fill('#item-expiry', future);
     await page.click('.btn-submit');

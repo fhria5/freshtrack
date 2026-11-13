@@ -23,6 +23,7 @@ function iso(offsetDays) {
 }
 
 async function addItem(page, name, offsetDays) {
+  if ((await page.getAttribute('#add-item-toggle', 'aria-expanded')) === 'false') await page.click('#add-item-toggle');
   await page.fill('#item-name', name);
   await page.fill('#item-expiry', iso(offsetDays));
   await page.click('.btn-submit');

@@ -167,6 +167,7 @@ async function main() {
 
     // ===== Add a fresh item: still works, no pop sound =====
     const future = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
+    if ((await page.getAttribute('#add-item-toggle', 'aria-expanded')) === 'false') await page.click('#add-item-toggle');
     await page.fill('#item-name', 'Test Lettuce');
     await page.fill('#item-expiry', future);
     await page.click('.btn-submit');
@@ -183,6 +184,7 @@ async function main() {
 
     // ===== Danger add: still works, no creak sound =====
     const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    if ((await page.getAttribute('#add-item-toggle', 'aria-expanded')) === 'false') await page.click('#add-item-toggle');
     await page.fill('#item-name', 'Test Milk');
     await page.fill('#item-expiry', tomorrow);
     await page.click('.btn-submit');
