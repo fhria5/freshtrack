@@ -1,36 +1,36 @@
-# FreshTrack — Structure
+# FreshTrack - Structure
 
 ## File map
 
-- `index.html` — page shell (20 lines): `#app` container, `#sr-announcer`
+- `index.html` - page shell (20 lines): `#app` container, `#sr-announcer`
   live region, skip link, bottom nav placeholder, script tags
   (`recipes.js`, then `app.js`).
-- `styles.css` — all styling, design tokens in `:root`, mobile-first,
+- `styles.css` - all styling, design tokens in `:root`, mobile-first,
   max-width 640px.
-- `recipes.js` — `RECIPES` array, 25 recipes. Each recipe has `name`,
+- `recipes.js` - `RECIPES` array, 25 recipes. Each recipe has `name`,
   `category` (Breakfast | Lunch | Snack | Dinner), `description`,
   `ingredients` (lowercase keywords; item names and category words must
   appear in ingredient strings so `matchRecipes` finds them), and
   `instructions`.
-- `app.js` — all application logic (one IIFE). State at the top, then
+- `app.js` - all application logic (one IIFE). State at the top, then
   utilities, persistence, urgency, rendering, modals, form handling,
   AI client (`fetchAiRecipe`, `handleAiRecipe`, `handleCookTonight`),
   and `init()` on `DOMContentLoaded`.
-- `worker/worker.js` — classic Cloudflare Worker (Gemini proxy).
-- `worker/deploy_worker.py` — deploys the Worker (PUT script only) and
+- `worker/worker.js` - classic Cloudflare Worker (Gemini proxy).
+- `worker/deploy_worker.py` - deploys the Worker (PUT script only) and
   creates the route if missing. Credentials come from the vault surrogate
   `custom.cloudflare`.
-- `deploy_freshtrack.py` — pushes app files and `.kiro` files to the
+- `deploy_freshtrack.py` - pushes app files and `.kiro` files to the
   GitHub repo `fhria5/freshtrack` via the Contents API (vault surrogate
   `custom.github`). Each PUT triggers a GitHub Pages build.
 - `README.md`, `LICENSE` (MIT), `.nojekyll`, `fonts/creepster.woff2`,
   `video/` (demo video, not deployed to Pages).
-- `.kiro/specs/freshtrack/` — requirements.md, design.md, tasks.md
+- `.kiro/specs/freshtrack/` - requirements.md, design.md, tasks.md
   (spec-driven development, Phases 1-17).
-- `.kiro/steering/` — product.md, tech.md, structure.md (this file).
-- `.kiro/hooks/` — `check-js-on-save.json` (runs `node --check` on
+- `.kiro/steering/` - product.md, tech.md, structure.md (this file).
+- `.kiro/hooks/` - `check-js-on-save.json` (runs `node --check` on
   `app.js` / `recipes.js` after Kiro saves them).
-- `scripts/check-saved-js.mjs` — the script the hook runs.
+- `scripts/check-saved-js.mjs` - the script the hook runs.
 
 ## Render flow
 
