@@ -14,11 +14,27 @@ https://fhria5.github.io/freshtrack/
 
 - **4-level urgency system** — Fresh 🥬, Wary 🧟, Danger 👹, Rotten 💀, with
   distinct colors, monsters, and animations
-- **Rescue recipes** — rule-based suggestions from a built-in recipe bank so
+- **Rescue recipes** - rule-based suggestions from a built-in bank of 25
+  recipes, filterable by meal (Breakfast, Lunch, Snack, Dinner), so
   expiring ingredients get used, not wasted
+- **AI Recipe** - tap the sparkle button on any item card to summon a
+  recipe from Gemini through a Cloudflare Worker proxy. When the AI is
+  unavailable the app silently falls back to rule-based recipes; a raw
+  error is never shown
+- **Cook Tonight** - one tap turns all Danger and Rotten items into a
+  single dinner plan (AI recipe, or the best rule-based matches when the
+  AI is resting)
 - **Impact Dashboard** — rescued vs wasted counts, estimated kg of food saved
   and CO₂ avoided (clearly labeled estimates), with history
-- **Monster Codex** — collect the 4 monsters by rescuing items at each urgency level
+- **Monster Codex** - collect the 4 monsters by rescuing items at each
+  urgency level; each rescue earns XP and monsters level up to Lv.5
+- **Daily rescue streak** - consecutive rescue days, plus a daily
+  challenge ("Rescue 1 item") and a Weekly Recap card
+- **Night Horror Mode** - automatic after dark (18:00-06:00) with a
+  manual Auto/On/Off cycle; fog, blinking title, and glowing eyes in an
+  empty pantry
+- **Item photos** - snap a photo per item from the phone camera
+  (downscaled before saving, max 20 photos)
 - **Daily Reminder** — browser notification + in-app "Today's Horrors" list of
   items expiring today or tomorrow
 - **Spooky Sounds** — synthesized Web Audio effects (off by default)
@@ -30,21 +46,43 @@ https://fhria5.github.io/freshtrack/
 
 ## Tech
 
-Vanilla HTML/CSS/JS. No build step, no dependencies, no backend. Self-hosted
-Creepster font. Works as a static site.
+Vanilla HTML/CSS/JS. No build step, no dependencies, no backend database.
+Self-hosted Creepster font. Works as a static site. AI recipes run through
+a classic Cloudflare Worker (`worker/worker.js`) that proxies Gemini
+(`gemini-3.5-flash-lite`); the key lives in the Worker secret
+`GEMINI_API_KEY` and is never shipped to the browser. Until that secret is
+installed the Worker answers 503 `ai_unavailable` and the app uses its
+rule-based recipes instead.
 
 ## Built with Kiro
 
 FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
 
 1. **Spec first** — requirements, design, and tasks were written as a Kiro spec
-   in `.kiro/specs/freshtrack/` (`requirements.md`, `design.md`, `tasks.md`).
-2. **Implementation** — Kiro CLI executed the spec's 18 tasks, then a polishing
-   pass (Phase 10), 5 extra features (Phase 11), and mobile bottom navigation
-   (Phase 12), verifying each task as it went.
-3. **Verification** — urgency boundaries (11/11), recipe matching, and
-   integration tests (34/34) were run during the build; the finished app was
-   checked in a real browser on desktop and mobile viewports.
+   in `.kiro/specs/freshtrack/` (`requirements.md`, `design.md`, `tasks.md`),
+   Phases 1-17.
+2. **Implementation** — Kiro CLI executed the spec, then a polishing pass
+   (Phase 10), 5 extra features (Phase 11), and mobile bottom navigation
+   (Phase 12). Version 2 (Phases 13-17) added the 25-recipe bank with
+   category filters, AI recipes plus Cook Tonight via the Gemini proxy
+   Worker, Kiro steering docs, and a working Kiro hook; the final v2
+   implementation was completed directly against the same spec when the
+   Kiro CLI hit its monthly plan limit mid-build.
+3. **Steering** - `.kiro/steering/` holds `product.md`, `tech.md`, and
+   `structure.md`, describing the app as it actually is: vanilla JS, the
+   localStorage keys, the Codex migration, the palette tokens, the 44px
+   accessibility rules, and the no-em-dash rule.
+4. **Hook** - `.kiro/hooks/check-js-on-save.json` (Kiro hook schema v1,
+   `PostFileSave`) runs `scripts/check-saved-js.mjs`, which runs
+   `node --check` on `app.js` or `recipes.js` whenever Kiro saves one, so
+   a syntax break is caught immediately. The hook file follows the
+   documented Kiro v1 schema and its command was verified by direct
+   simulation (passes on good files, exits non-zero on a broken file).
+5. **Verification** — urgency boundaries (11/11), recipe matching, and
+   integration tests (34/34) were run during the build; the finished app
+   was checked in a real browser on desktop and mobile viewports, including
+   the v2 flows: add item, AI Recipe fallback, rescue, Codex XP, streak,
+   night mode, and photo.
 
 The `.kiro` directory in this repo is the evidence of that workflow.
 
