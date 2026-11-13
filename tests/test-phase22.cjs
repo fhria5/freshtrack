@@ -70,7 +70,8 @@ async function main() {
     });
     check('design: mist layer present', fx.mistContent === '""' || fx.mistContent === '" "', fx.mistContent);
     check('design: mist drifts', fx.mistAnim.indexOf('mistDrift') !== -1, fx.mistAnim);
-    check('design: title flickers', fx.titleAnim.indexOf('titleFlicker') !== -1, fx.titleAnim);
+    // Day uses titleFlicker, night mode uses flicker; either is a flicker.
+    check('design: title flickers', fx.titleAnim.toLowerCase().indexOf('flicker') !== -1, fx.titleAnim);
     check('design: blood divider under header', fx.dividerHeight === '2px', fx.dividerHeight);
 
     // ===== Contrast AA (4.5:1) for every text token on its background =====
