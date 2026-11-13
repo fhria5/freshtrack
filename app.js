@@ -23,7 +23,6 @@
   var soundsEnabled = false;        // Spooky Sounds toggle (default OFF)
   var nightPref = 'auto';           // Night Mode: 'auto' | 'on' | 'off'
   var recipeFilter = 'All';         // recipe category filter: 'All' | 'Breakfast' | 'Lunch' | 'Snack' | 'Dinner'
-  var recipeFilterItem = null;      // id of the item the recipe filter belongs to; other items always start at 'All'
   var aiCache = {};                 // AI recipes in memory only, keyed by item name (lowercase)
   var aiLoading = {};               // item names with an AI request in flight
   var aiFallback = {};              // item names whose last AI attempt fell back to pantry recipes
@@ -340,8 +339,10 @@
   // Checks every secret unlock condition after a rescue. Each condition is
   // tied to a real feature, so secrets are earned by playing, never bought.
   function checkSecretUnlocks(itemId) {
-    // Glimmer Sprout: rescued an item that had a real AI recipe.
-    if (aiRecipeReady[itemId]) unlockSecret('secretFresh');
+    var item = findItemById(itemId);
+    // Glimmer Sprout: rescued an item that had a real AI recipe, fetched
+    // for this item or shown from the in-memory cache (same-named item).
+    if (aiRecipeReady[itemId] || (item && aiCache[aiKey(item.name)])) unlockSecret('secretFresh');
     // Midnight Watcher: rescue while Night Mode is active.
     if (nightActive()) unlockSecret('secretWary');
     // Triple Threat: 3 rescues in a single day (history counts this rescue already).
@@ -537,74 +538,19 @@
 
   // ===== Recipe Matching =====
 
-  // Category keywords used as matching metadata inside RECIPES ingredient
-  // lists. They are NOT real ingredients and are never shown to the user
-  // (recipeEntryHtml filters them out of the displayed list).
-  var CATEGORY_KEYWORDS = {
-    produce: 'fresh produce',
-    dairy: 'dairy products',
-    meat: 'meat',
-    pantry: 'pantry staples',
-    bakery: 'bakery item'
-  };
-
-  // Generic words that read as nonsense when shown as an ingredient.
-  var GENERIC_INGREDIENTS = [
-    'fresh produce', 'dairy products', 'pantry staples', 'bakery item',
-    'meat', 'vegetables', 'fruit', 'herbs'
-  ];
-
-  // "Bananas" -> "banana", "Tomatoes" -> "tomato", "Oats" -> "oat".
-  function singularize(word) {
-    var w = String(word || '').trim().toLowerCase();
-    if (w.length > 4 && w.slice(-3) === 'oes') return w.slice(0, -2);
-    if (w.length > 4 && (w.slice(-4) === 'ches' || w.slice(-4) === 'shes' ||
-        w.slice(-4) === 'sses' || w.slice(-3) === 'xes' || w.slice(-3) === 'zes')) {
-      return w.slice(0, -2);
-    }
-    if (w.length > 3 && w.slice(-1) === 's') return w.slice(0, -1);
-    return w;
-  }
-
-  function itemKey(item) {
-    return singularize(item.name);
-  }
-
-  // Returns { primary: [...], secondary: [...] }.
-  // Primary: the recipe's `main` field names this item — a real main
-  // ingredient, so the recipe genuinely uses the item being rescued.
-  // Secondary: the recipe only matches the item's category keyword
-  // (e.g. "fresh produce") — shown separately under "Also try", capped at 4.
-  // The old matcher treated a category-keyword hit as a full match, which is
-  // why Bananas listed 19 mostly-irrelevant recipes.
-  function matchRecipesGrouped(item) {
-    var key = itemKey(item);
-    var catKeyword = CATEGORY_KEYWORDS[(item.category || '').toLowerCase()] || null;
-    var primary = [];
-    var secondary = [];
-    var all = getRecipes();
-    for (var i = 0; i < all.length; i++) {
-      var r = all[i];
-      var mains = r.main || [];
-      var isPrimary = false;
-      for (var m = 0; m < mains.length; m++) {
-        if (singularize(mains[m]) === key) { isPrimary = true; break; }
-      }
-      if (isPrimary) { primary.push(r); continue; }
-      if (catKeyword) {
-        var ings = r.ingredients || [];
-        for (var j = 0; j < ings.length; j++) {
-          if (String(ings[j]).toLowerCase() === catKeyword) { secondary.push(r); break; }
-        }
-      }
-    }
-    return { primary: primary, secondary: secondary.slice(0, 4) };
-  }
-
-  // Backwards-compatible flat list: primary matches first, then "also try".
   function matchRecipes(item) {
-    var g = matchRecipesGrouped(item);
-    return g.primary.concat(g.secondary);
+    var nameLower = (item.name || '').trim().toLowerCase();
+    var catLower = (item.category || '').toLowerCase();
+    if (!nameLower && !catLower) return [];
+
+    return getRecipes().filter(function (recipe) {
+      var ingredients = recipe.ingredients || [];
+      return ingredients.some(function (ing) {
+        var ingLower = (ing || '').toLowerCase();
+        return (nameLower && ingLower.indexOf(nameLower) !== -1) ||
+               (catLower && ingLower.indexOf(catLower) !== -1);
+      });
+    });
   }
 
   // ===== Rendering =====
@@ -728,8 +674,8 @@
     var html = '' +
       '<article class="card" data-urgency="' + level + '" data-id="' + escapeHtml(item.id) + '">' +
         '<div class="card-row">' +
-          (item.photo
-            ? '<img class="item-photo" src="' + item.photo + '" alt="Photo of ' + escapeHtml(item.name) + '" loading="lazy">'
+          (item.photo && item.photo.indexOf('data:image/') === 0
+            ? '<img class="item-photo" src="' + escapeHtml(item.photo) + '" alt="Photo of ' + escapeHtml(item.name) + '" loading="lazy">'
             : '<span class="monster" aria-hidden="true">' + monster + '</span>') +
           '<div class="card-info">' +
             '<h3 class="item-name">' + escapeHtml(item.name) + '</h3>' +
@@ -740,16 +686,15 @@
             '</div>' +
           '</div>' +
           '<div class="card-actions">' +
-            '<button class="btn-ai" data-action="ai-recipe" data-id="' + escapeHtml(item.id) + '" data-name="' + escapeHtml(item.name) + '" aria-label="Get an AI recipe for ' + escapeHtml(item.name) + '">\u2728</button>' +
+            '<button class="btn-ai" data-action="ai-recipe" data-id="' + escapeHtml(item.id) + '" data-name="' + escapeHtml(item.name) + '" title="Get an AI recipe" aria-label="Get an AI recipe for ' + escapeHtml(item.name) + '">\u2728</button>' +
             '<button class="btn-rescue" data-action="rescue" data-id="' + escapeHtml(item.id) + '" data-name="' + escapeHtml(item.name) + '" aria-label="Rescue ' + escapeHtml(item.name) + '">\u{1F6E1}\uFE0F</button>' +
             '<button class="btn-delete" data-action="delete" data-id="' + escapeHtml(item.id) + '" data-name="' + escapeHtml(item.name) + '" aria-label="Delete ' + escapeHtml(item.name) + '">\u2715</button>' +
           '</div>' +
         '</div>';
 
-    // Rescue Recipes are shown for every item, not only danger/rotten ones.
-    // The old gate hid the whole section for wary/fresh items, so Cheese
-    // (wary) and Spinach (fresh) had matching recipes but no button at all.
-    html += renderRecipeSuggestions(item);
+    if (level === 'danger' || level === 'rotten') {
+      html += renderRecipeSuggestions(item);
+    }
 
     html += '<div class="ai-section" data-ai-for="' + escapeHtml(item.id) + '">' + renderAiSectionInner(item) + '</div>';
 
@@ -758,11 +703,7 @@
   }
 
   function recipeEntryHtml(recipe) {
-    // Category keywords are matching metadata, not food — never show them
-    // as ingredients (no more "dairy products" in an ingredient list).
-    var ingredientList = (recipe.ingredients || []).filter(function (ing) {
-      return GENERIC_INGREDIENTS.indexOf(String(ing || '').toLowerCase()) === -1;
-    }).map(function (ing) {
+    var ingredientList = (recipe.ingredients || []).map(function (ing) {
       return '<li>' + escapeHtml(ing) + '</li>';
     }).join('');
     var instructionList = (recipe.instructions || []).map(function (step) {
@@ -785,34 +726,22 @@
   }
 
   function renderRecipeListInner(item) {
-    var grouped = matchRecipesGrouped(item);
-    // The meal filter belongs to one item only. Opening another item's list
-    // always starts at 'All' — the old global filter stuck across items and
-    // showed "No recipes in this category" for items that have recipes.
-    var effectiveFilter = (recipeFilterItem && recipeFilterItem !== item.id) ? 'All' : recipeFilter;
+    var recipes = matchRecipes(item);
+    var filtered = recipeFilter === 'All'
+      ? recipes
+      : recipes.filter(function (r) { return r.category === recipeFilter; });
     var chips = ['All', 'Breakfast', 'Lunch', 'Snack', 'Dinner'].map(function (cat) {
-      return '<button type="button" class="filter-chip' + (effectiveFilter === cat ? ' active' : '') +
-        '" data-action="filter-recipes" data-filter="' + cat + '" aria-pressed="' + (effectiveFilter === cat) + '">' + cat + '</button>';
+      return '<button type="button" class="filter-chip' + (recipeFilter === cat ? ' active' : '') +
+        '" data-action="filter-recipes" data-filter="' + cat + '" aria-pressed="' + (recipeFilter === cat) + '">' + cat + '</button>';
     }).join('');
 
-    var renderGroup = function (list, heading) {
-      var filtered = effectiveFilter === 'All'
-        ? list
-        : list.filter(function (r) { return r.category === effectiveFilter; });
-      if (filtered.length === 0) return '';
-      return (heading ? '<p class="also-try-heading">' + escapeHtml(heading) + '</p>' : '') +
-        filtered.map(recipeEntryHtml).join('');
-    };
-
-    var primaryHtml = renderGroup(grouped.primary, '');
-    var secondaryHtml = renderGroup(grouped.secondary, 'Also try \u2014 uses other items from your fridge');
     var listHtml;
-    if (grouped.primary.length === 0 && grouped.secondary.length === 0) {
+    if (recipes.length === 0) {
       listHtml = '<p class="no-recipes">No rescue recipes found for this item. Time to improvise... or bid farewell.</p>';
-    } else if (!primaryHtml && !secondaryHtml) {
+    } else if (filtered.length === 0) {
       listHtml = '<p class="no-recipes">No recipes in this category for this item. Try another filter.</p>';
     } else {
-      listHtml = primaryHtml + secondaryHtml;
+      listHtml = filtered.map(recipeEntryHtml).join('');
     }
 
     return '<div class="filter-row" role="group" aria-label="Filter recipes by meal">' + chips + '</div>' + listHtml;
@@ -953,6 +882,9 @@
     if (aiLoading[key]) return;
     var cached = aiCache[key];
     if (cached) {
+      // A real AI recipe is on screen for this item, so rescuing it counts
+      // toward the Glimmer Sprout secret, even for a same-named second item.
+      aiRecipeReady[itemId] = true;
       aiOpen[key] = !aiOpen[key];
       updateAiSection(itemId, itemName);
       return;
@@ -1105,17 +1037,16 @@
     var notifSupported = ('Notification' in window);
     var permission = notifSupported ? Notification.permission : 'unsupported';
 
-    // The button is NEVER disabled: every state is clickable and explains
-    // itself. A disabled button is a dead button — in headless browsers and
-    // after a previous denial, permission is 'denied' from the start, which
-    // used to render this button unclickable with no way back.
     var reminderLabel;
+    var reminderDisabled = false;
     if (!notifSupported) {
       reminderLabel = '\uD83D\uDD15 Reminders unavailable';
+      reminderDisabled = true;
     } else if (permission === 'granted') {
       reminderLabel = '\uD83D\uDD14 Reminders On';
     } else if (permission === 'denied') {
       reminderLabel = '\uD83D\uDD15 Reminders Blocked';
+      reminderDisabled = true;
     } else {
       reminderLabel = '\uD83D\uDD14 Enable Reminders';
     }
@@ -1134,7 +1065,8 @@
         '<button type="button" class="ctrl-btn ctrl-tonight" data-action="cook-tonight"' + (tonightDisabled ? ' disabled aria-disabled="true"' : '') + (urgentCount === 0 ? ' title="No urgent items to cook tonight"' : '') + '>' +
           '\uD83C\uDF73 Cook Tonight' +
         '</button>' +
-        '<button type="button" class="ctrl-btn ctrl-reminder" data-action="enable-reminders">' +
+        '<button type="button" class="ctrl-btn ctrl-reminder' + (reminderDisabled ? ' disabled' : '') +
+          '" data-action="enable-reminders"' + (reminderDisabled ? ' disabled aria-disabled="true"' : '') + '>' +
           reminderLabel +
         '</button>' +
         '<button type="button" class="ctrl-btn ctrl-sounds" data-action="toggle-sounds" aria-pressed="' + soundsEnabled + '">' +
@@ -1460,7 +1392,6 @@
       { name: 'Chicken',  category: 'meat',    expiryDate: dateStr(-2) }   // rotten
     ];
 
-    var added = 0;
     for (var i = 0; i < demoItems.length; i++) {
       var demo = demoItems[i];
       // Idempotent: skip demo items whose name already exists (case-insensitive)
@@ -1474,19 +1405,10 @@
         category: demo.category,
         expiryDate: demo.expiryDate
       });
-      added++;
     }
 
     saveItems();
-    // Report the true count: a second Summon adds nothing (no duplicates),
-    // so the old fixed "4 items added" message was a lie.
-    if (added === 0) {
-      announce('Demo pantry already complete — nothing new added.');
-    } else if (added === 1) {
-      announce('Demo pantry summoned: 1 item added.');
-    } else {
-      announce('Demo pantry summoned: ' + added + ' items added.');
-    }
+    announce('Demo pantry summoned: 4 items added.');
     render();
   }
 
@@ -1778,7 +1700,6 @@
       if (section) {
         var card = section.closest('.card');
         var itemId = card ? card.getAttribute('data-id') : null;
-        recipeFilterItem = itemId; // the filter belongs to this item only
         var filterItem = itemId ? findItemById(itemId) : null;
         var list = section.querySelector('.recipe-list');
         if (list && filterItem) list.innerHTML = renderRecipeListInner(filterItem);
@@ -1825,145 +1746,20 @@
     }
   }
 
-  // ===== Generic info modal =====
-
-  // Small modal for messages that must be SEEN (reminders status, errors).
-  // Same overlay / focus-trap pattern as the other modals; closes on Close,
-  // Escape, or clicking the overlay. Returns the overlay so callers can wire
-  // extra buttons inside it. The body may include a hidden
-  // `.modal-info-note` line that callers reveal with a follow-up message.
-  function openInfoModal(title, bodyHtml, extraButtonsHtml) {
-    closeModal();
-
-    var overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-labelledby', 'modal-title');
-
-    overlay.innerHTML =
-      '<div class="modal modal-info">' +
-        '<p class="modal-title" id="modal-title">' + escapeHtml(title) + '</p>' +
-        '<div class="modal-info-body">' + bodyHtml + '</div>' +
-        '<p class="modal-info-note" hidden></p>' +
-        '<div class="modal-buttons">' + (extraButtonsHtml || '') +
-          '<button class="btn-modal btn-keep" data-modal-action="close">Close</button>' +
-        '</div>' +
-      '</div>';
-
-    document.body.appendChild(overlay);
-    document.body.style.overflow = 'hidden';
-
-    var focusable = overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    modalState = {
-      overlay: overlay,
-      triggerEl: null,
-      onConfirm: null,
-      focusableElements: focusable,
-      firstFocusable: focusable[0],
-      lastFocusable: focusable[focusable.length - 1]
-    };
-
-    var closeBtn = overlay.querySelector('[data-modal-action="close"]');
-    if (closeBtn) closeBtn.focus();
-    if (closeBtn) closeBtn.addEventListener('click', function () { closeModal(); });
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) closeModal();
-    });
-    return overlay;
-  }
-
   // ===== Daily Reminder (Notifications) =====
 
-  var REMINDERS_BLOCKED_HTML =
-    '<p>Notifications are blocked for this site, so FreshTrack can\'t remind you.</p>' +
-    '<p>To turn them on, allow notifications in your browser\'s site settings ' +
-    '(the lock or tune icon in the address bar), then reload this page.</p>';
-
-  // Every outcome shows something visible. The old version returned silently
-  // when notifications were unsupported or denied — and the button itself
-  // used to render disabled in those states, so the click did nothing at all.
   function requestReminderPermission() {
-    if (!('Notification' in window)) {
-      openInfoModal('Reminders unavailable',
-        '<p>Notifications aren\'t supported in this browser, so FreshTrack can\'t send reminders here.</p>' +
-        '<p>Your pantry still works — check back before things rot.</p>');
-      announce('Reminders are not supported in this browser.');
-      return;
-    }
-
-    var permission = Notification.permission;
-
-    if (permission === 'granted') {
-      var soon = getExpiringSoonItems();
-      var body = '<p>Reminders are <strong>on</strong>. FreshTrack will warn you when items are about to rot.</p>' +
-        (soon.length > 0
-          ? '<p>Expiring soon: ' + escapeHtml(soon.map(function (entry) { return entry.item.name; }).join(', ')) + '.</p>'
-          : '<p>Nothing is expiring soon right now.</p>');
-      var onOverlay = openInfoModal('Reminders are on', body,
-        '<button class="btn-modal btn-keep" data-modal-action="test">Send a test reminder</button>');
-      var testBtn = onOverlay.querySelector('[data-modal-action="test"]');
-      if (testBtn) testBtn.addEventListener('click', function () {
-        var note = onOverlay.querySelector('.modal-info-note');
-        if (soon.length === 0) {
-          if (note) {
-            note.textContent = 'Nothing is expiring soon, so there was nothing to send — the reminder will fire when something is about to rot.';
-            note.removeAttribute('hidden');
-          }
-        } else {
-          maybeShowReminderNotification();
-          if (note) {
-            note.textContent = 'Test reminder sent — check your notifications.';
-            note.removeAttribute('hidden');
-          }
-        }
-      });
-      announce('Reminders are on.');
-      return;
-    }
-
-    if (permission === 'denied') {
-      var blockedOverlay = openInfoModal('Reminders are blocked', REMINDERS_BLOCKED_HTML,
-        '<button class="btn-modal btn-keep" data-modal-action="recheck">Check again</button>');
-      var recheckBtn = blockedOverlay.querySelector('[data-modal-action="recheck"]');
-      if (recheckBtn) recheckBtn.addEventListener('click', function () {
-        closeModal();
-        requestReminderPermission();
-      });
-      announce('Reminders are blocked. Notifications are disabled for this site.');
-      return;
-    }
-
-    // 'default' — ask the browser for permission.
-    var settled = false;
-    var after = function (perm) {
-      if (settled) return;
-      settled = true;
-      afterReminderPermission(perm);
+    if (!('Notification' in window)) return;
+    var after = function (permission) {
+      if (permission === 'granted') {
+        maybeShowReminderNotification();
+      }
+      render();
     };
-    try {
-      var result = Notification.requestPermission(after);
-      if (result && typeof result.then === 'function') result.then(after);
-    } catch (e) {
-      after('denied');
+    var result = Notification.requestPermission(after);
+    if (result && typeof result.then === 'function') {
+      result.then(after);
     }
-  }
-
-  function afterReminderPermission(permission) {
-    if (permission === 'granted') {
-      maybeShowReminderNotification();
-      openInfoModal('Reminders on',
-        '<p>Done — reminders are on. FreshTrack will warn you before things rot.</p>');
-      announce('Reminders turned on.');
-    } else if (permission === 'denied') {
-      openInfoModal('Reminders are blocked', REMINDERS_BLOCKED_HTML);
-      announce('Reminders are blocked. Notifications are disabled for this site.');
-    } else {
-      openInfoModal('Reminders off',
-        '<p>No problem — reminders stay off. You can enable them anytime from the Reminders button.</p>');
-      announce('Reminders stay off.');
-    }
-    render();
   }
 
   function maybeShowReminderNotification() {
@@ -2066,136 +1862,31 @@
     }
   }
 
-  // ===== Share Card (Canvas + Web Share) =====
+  function handleShare() {
+    drawShareCard(function (blob, fallbackDataUrl) {
+      var caption = 'I\u2019ve saved ' + soulsSaved + ' souls from the void with FreshTrack! ' +
+        countCaptured() + ' monsters captured. #KiroweenHackathon26';
 
-  // The rendered card for the currently open share modal.
-  var shareState = null; // { blob, url, filename, caption }
+      // Prefer Web Share API with a real file, when available.
+      if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob], 'freshtrack-share.png', { type: 'image/png' })] })) {
+        var file = new File([blob], 'freshtrack-share.png', { type: 'image/png' });
+        navigator.share({
+          title: 'FreshTrack',
+          text: caption,
+          files: [file]
+        }).catch(function () { /* user cancelled or unsupported */ });
+        return;
+      }
 
-  // Opens the share modal IMMEDIATELY (with a loading line) so the click
-  // always gives visible feedback, then fills in the rendered card image.
-  // The old code showed nothing at all: it either opened the native share
-  // sheet (which fails silently when the gesture expires or the OS has no
-  // share targets) or silently downloaded a PNG nobody saw happening.
-  function openShareModal(title, filename, caption) {
-    closeModal();
-    if (shareState && shareState.url && shareState.url.indexOf('blob:') === 0) {
-      try { URL.revokeObjectURL(shareState.url); } catch (e) {}
-    }
-    shareState = { blob: null, url: null, filename: filename, caption: caption };
-
-    var overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-labelledby', 'modal-title');
-
-    overlay.innerHTML =
-      '<div class="modal modal-share">' +
-        '<p class="modal-title" id="modal-title">' + escapeHtml(title) + '</p>' +
-        '<p class="share-loading">Drawing your card...</p>' +
-        '<img class="share-img" hidden alt="Your FreshTrack share card">' +
-        '<p class="share-note" hidden></p>' +
-        '<div class="modal-buttons">' +
-          '<button class="btn-modal btn-share" data-modal-action="share" disabled>Share</button>' +
-          '<button class="btn-modal btn-download" data-modal-action="download" disabled>Download PNG</button>' +
-          '<button class="btn-modal btn-keep" data-modal-action="close">Close</button>' +
-        '</div>' +
-      '</div>';
-
-    document.body.appendChild(overlay);
-    document.body.style.overflow = 'hidden';
-
-    var focusable = overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    modalState = {
-      overlay: overlay,
-      triggerEl: null,
-      onConfirm: null,
-      focusableElements: focusable,
-      firstFocusable: focusable[0],
-      lastFocusable: focusable[focusable.length - 1]
-    };
-
-    var closeBtn = overlay.querySelector('[data-modal-action="close"]');
-    if (closeBtn) closeBtn.focus();
-    if (closeBtn) closeBtn.addEventListener('click', function () { closeModal(); });
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) closeModal();
-    });
-
-    var noteEl = overlay.querySelector('.share-note');
-    var showNote = function (msg) {
-      if (noteEl) { noteEl.textContent = msg; noteEl.removeAttribute('hidden'); }
-    };
-
-    var downloadBtn = overlay.querySelector('[data-modal-action="download"]');
-    if (downloadBtn) downloadBtn.addEventListener('click', function () {
-      if (!shareState || !shareState.url) return;
+      // Fallback: download the PNG.
+      var url = blob ? URL.createObjectURL(blob) : fallbackDataUrl;
       var a = document.createElement('a');
-      a.href = shareState.url;
-      a.download = shareState.filename;
+      a.href = url;
+      a.download = 'freshtrack-share.png';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      announce('Card downloaded.');
-    });
-
-    var shareBtn = overlay.querySelector('[data-modal-action="share"]');
-    if (shareBtn) shareBtn.addEventListener('click', function () {
-      if (!shareState || !shareState.blob) return;
-      var file = new File([shareState.blob], shareState.filename, { type: 'image/png' });
-      if (!(navigator.canShare && navigator.canShare({ files: [file] }))) {
-        showNote('Sharing is not available in this browser — use Download instead.');
-        return;
-      }
-      // Called synchronously inside this click handler, so the user gesture
-      // is still valid. The old code called share() after async canvas
-      // rendering, which can lose the gesture and fail silently.
-      navigator.share({ title: 'FreshTrack', text: shareState.caption, files: [file] }).then(function () {
-        announce('Card shared.');
-      }).catch(function (err) {
-        if (err && err.name === 'AbortError') return; // user closed the share sheet
-        showNote('Sharing failed here — use Download instead.');
-      });
-    });
-
-    return overlay;
-  }
-
-  // Fills the open share modal with the rendered card image and enables
-  // the Download / Share buttons.
-  function fillShareModal(overlay, blob, fallbackDataUrl) {
-    var url = blob ? URL.createObjectURL(blob) : fallbackDataUrl;
-    if (shareState) { shareState.blob = blob; shareState.url = url; }
-    var img = overlay.querySelector('.share-img');
-    if (img) { img.src = url; img.removeAttribute('hidden'); }
-    var loading = overlay.querySelector('.share-loading');
-    if (loading) loading.setAttribute('hidden', '');
-    var downloadBtn = overlay.querySelector('[data-modal-action="download"]');
-    if (downloadBtn) downloadBtn.removeAttribute('disabled');
-    var shareBtn = overlay.querySelector('[data-modal-action="share"]');
-    if (shareBtn) {
-      var canShareFiles = !!(blob && navigator.canShare &&
-        navigator.canShare({ files: [new File([blob], shareState.filename, { type: 'image/png' })] }));
-      if (canShareFiles) {
-        shareBtn.removeAttribute('disabled');
-      } else {
-        shareBtn.setAttribute('disabled', '');
-        var note = overlay.querySelector('.share-note');
-        if (note) {
-          note.textContent = 'Sharing is not available in this browser — use Download instead.';
-          note.removeAttribute('hidden');
-        }
-      }
-    }
-  }
-
-  function handleShare() {
-    var caption = 'I\u2019ve saved ' + soulsSaved + ' souls from the void with FreshTrack! ' +
-      countCaptured() + ' monsters captured. #KiroweenHackathon26';
-    var overlay = openShareModal('Your FreshTrack Card', 'freshtrack-share.png', caption);
-    announce('Drawing your FreshTrack card...');
-    drawShareCard(function (blob, fallbackDataUrl) {
-      fillShareModal(overlay, blob, fallbackDataUrl);
+      if (blob) { setTimeout(function () { URL.revokeObjectURL(url); }, 2000); }
     });
   }
 
@@ -2281,12 +1972,28 @@
   }
 
   function handleWeeklyShare() {
-    var caption = 'My FreshTrack week: ' + countWeekEvents('rescued') +
-      ' souls rescued, ' + streakState.count + '-day streak. #KiroweenHackathon26';
-    var overlay = openShareModal('Your Weekly Recap', 'freshtrack-weekly.png', caption);
-    announce('Drawing your weekly recap...');
     drawWeeklyCard(function (blob, fallbackDataUrl) {
-      fillShareModal(overlay, blob, fallbackDataUrl);
+      var caption = 'My FreshTrack week: ' + countWeekEvents('rescued') +
+        ' souls rescued, ' + streakState.count + '-day streak. #KiroweenHackathon26';
+
+      if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob], 'freshtrack-weekly.png', { type: 'image/png' })] })) {
+        var file = new File([blob], 'freshtrack-weekly.png', { type: 'image/png' });
+        navigator.share({
+          title: 'FreshTrack Weekly Recap',
+          text: caption,
+          files: [file]
+        }).catch(function () { /* user cancelled or unsupported */ });
+        return;
+      }
+
+      var url = blob ? URL.createObjectURL(blob) : fallbackDataUrl;
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'freshtrack-weekly.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      if (blob) { setTimeout(function () { URL.revokeObjectURL(url); }, 2000); }
     });
   }
 
