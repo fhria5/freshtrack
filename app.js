@@ -1497,6 +1497,7 @@
       '<footer class="footer">' +
         '<p>Kiroween 2026 \u2014 Costume Contest</p>' +
         '<p class="footer-flavor">Don\u2019t let the monsters win. \uD83C\uDF83</p>' +
+        '<p class="footer-version">FreshTrack v22.1 (sounds on by default)</p>' +
       '</footer>';
   }
 
