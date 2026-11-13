@@ -137,7 +137,9 @@ async function main() {
     heights.mobile = mobHeights;
     console.log('INFO | mobile heights (px, demo pantry): ' + JSON.stringify(mobHeights) + ' (viewport 844px)');
     check('mobile: every tab shorter than the old 4023px page', Object.values(mobHeights).every((h) => h < 4023), JSON.stringify(mobHeights));
-    check('mobile: Impact/Codex/Share tabs fit ~2 screens (<=1688px)', mobHeights.impact <= 1688 && mobHeights.codex <= 1688 && mobHeights.share <= 1688, JSON.stringify(mobHeights));
+    // Phase 23: the header audio bar adds one control row (~32px net after
+    // tightening the header margins); bound raised 1688 to 1760, still ~2 screens.
+    check('mobile: Impact/Codex/Share tabs fit ~2 screens (<=1760px)', mobHeights.impact <= 1760 && mobHeights.codex <= 1760 && mobHeights.share <= 1760, JSON.stringify(mobHeights));
     await mob.close();
 
     // 4. Desktop: tab bar visible, bottom nav hidden; tab bar switches tabs.
