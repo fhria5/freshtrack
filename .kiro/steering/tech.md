@@ -1,4 +1,4 @@
-# FreshTrack — Tech
+# FreshTrack - Tech
 
 ## Stack
 
@@ -20,16 +20,16 @@
 
 ## localStorage keys (do not rename, do not add new ones in v2)
 
-- `freshtrack.items` — item list
-- `freshtrack.soulsSaved` — rescue counter
-- `freshtrack.history` — Impact Dashboard event log
-- `freshtrack.codex` — Monster Codex, shape
+- `freshtrack.items` - item list
+- `freshtrack.soulsSaved` - rescue counter
+- `freshtrack.history` - Impact Dashboard event log
+- `freshtrack.codex` - Monster Codex, shape
   `{ level: { captured: bool, count: number } }` for levels
   `fresh | wary | danger | rotten`. Old data stored plain booleans;
   the loader migrates boolean values into this shape. Keep the migration.
-- `freshtrack.streak` — daily rescue streak `{ count, lastDate }`
-- `freshtrack.nightmode` — Night Mode preference `auto | on | off`
-- `freshtrack.sounds` — Spooky Sounds on/off (default off)
+- `freshtrack.streak` - daily rescue streak `{ count, lastDate }`
+- `freshtrack.nightmode` - Night Mode preference `auto | on | off`
+- `freshtrack.sounds` - Spooky Sounds on/off (default off)
 
 AI results are cached in memory only (`aiCache`, keyed by lowercase item
 name). Never persist AI output or API keys in localStorage.
