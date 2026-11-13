@@ -155,3 +155,23 @@ Roughly one-third of all food produced globally is wasted, much of it at the hou
 - Users add items manually; expiry dates are user-provided and not validated against real product data.
 - The app is used on a single device/browser; no sync is needed.
 - The recipe bank is small and curated, not exhaustive.
+
+## v2 Additions (13 Nov 2026)
+
+### New User Stories
+
+- **US-13:** As a user, I can tap "AI Recipe" on any item card and get a recipe generated for that item, with a clear "AI-generated" label.
+- **US-14:** As a user, I can tap "Cook Tonight" and get one cooking plan that uses all my Danger and Rotten items together.
+- **US-15:** As a user, when AI is unavailable (offline, no key, or any failure), I still get useful rule-based recipes with a friendly note, never a raw error.
+- **US-16:** As a user, I can filter the recipe list by meal category: Breakfast, Lunch, Snack, Dinner.
+
+### New Functional Requirements
+
+- **FR-8 (AI Recipes):** The app POSTs ingredient names to a Gemini proxy Worker and renders the returned recipe (title, ingredients, steps, time) with an "AI-generated" badge. Any failure falls back silently to rule-based recipes.
+- **FR-9 (Cook Tonight):** A controls-strip button, enabled only when at least one Danger or Rotten item exists, builds one plan from all urgent items (max 12). Fallback ranks rule-based recipes by urgent-item coverage, top 3.
+- **FR-10 (Recipe bank 25):** The bank holds 25 recipes, each with a meal `category` (Breakfast, Lunch, Snack, Dinner). The recipe list has filter chips (All + 4 categories) with `aria-pressed` state.
+- **FR-11 (AI proxy Worker):** A classic Cloudflare Worker at `grokingstore.my.id/freshtrack-ai/*` exposes `GET /api/health` and `POST /api/recipe`. Without `GEMINI_API_KEY` it returns a tidy 503 `{ error: 'ai_unavailable' }`. Rate limit 30 req/IP/min. CORS limited to the live demo origin and localhost.
+
+### Updated Non-Goals
+
+- The "no online recipe search or external API calls" non-goal is relaxed for v2: AI recipes are an optional, progressive enhancement behind the Worker. The app stays fully usable offline with the rule-based bank when AI is unavailable.
