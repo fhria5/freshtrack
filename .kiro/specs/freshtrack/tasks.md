@@ -346,3 +346,40 @@ Implementation tasks for the FreshTrack app. Each task is self-contained and ver
 ### Task 18.4 — Docs + deploy
 - [x] Update README Monster Codex line (8 monsters, 4 secret, unlock conditions named).
 - [x] Deploy via `deploy_freshtrack.py`; verify live from GitHub Pages (curl fresh app.js content + repo blob SHA equals local).
+
+## Phase 19: Polish Audit (pre-video, pre-submit)
+
+### Task 19.1 — Audit (Playwright, mobile 390px + desktop 1280px + tiny 320px)
+- [x] Add `tests/test-phase19-audit.cjs`: viewport audits (0 console errors, 0 targets under 44px, 0 horizontal overflow), computed WCAG contrast for 13 text elements, form validation + error clearing, delete modal Escape + focus return, malformed localStorage (garbage items/history/codex, old boolean codex, codex without secrets), malformed date + 120-char unbroken name, stored-photo XSS probe, AI 500 + AI 15s timeout fallback, Cook Tonight disabled state, streak gap reset, empty filter state, Share Card + Weekly Recap downloads, skip link, AI cache-hit secret unlock.
+- [x] Audit findings (first run, 39/50): contrast failures on Danger badge (3.73:1), Danger label (4.10:1), Rotten badge (3.93:1); stats strip overflow at 320px (4 x 80px + gaps > 320px); 120-char unbroken item name overflowed 591px; stored XSS via crafted `photo` string executed (`onerror` fired); skip-link check was a test artifact (missing transition wait); 500/404 console errors were Chrome's own failed-fetch log (AI 500 mock) and the XSS img's own request, not app faults.
+- [x] Verify: audit rerun after fixes passes 55/55.
+
+### Task 19.2 — Contrast fixes (AA 4.5:1 for normal text)
+- [x] Add `--accent-danger-text: #ef7a7a` token; use it for `.badge-danger` (was #d64545, 3.73:1, now 6.02:1), `.urgency-danger` (now 6.61:1), and `.horror-when` danger rows.
+- [x] `.badge-rotten` now uses `--accent-rotten-text` #e06565 (was #d64545, 3.93:1, now 5.09:1).
+- [x] Submit button gradient start darkened to #c93a3a so white text reaches 5.06:1 (was 4.38:1 on #d64545). Borders and non-text accents keep #d64545.
+- [x] Verify: all 13 measured text elements pass AA in the audit.
+
+### Task 19.3 — Stored-XSS fix for item photos
+- [x] In `renderItemCard`, render `<img>` only when `item.photo` starts with `data:image/`, and escape the URL with `escapeHtml`. A crafted photo string no longer injects attributes or handlers; it falls back to the monster icon.
+- [x] Verify: audit XSS probe passes (no execution, no `onerror` attribute, monster shown). Valid data-URL photos still render (covered by the v2 photo test).
+
+### Task 19.4 — Small-screen and long-name layout fixes
+- [x] Stats strip wraps at 480px and below (`.stat { flex: 1 1 40%; min-width: 0 }`), forming a 2x2 grid on 320px screens instead of overflowing.
+- [x] `.item-name` and `.horror-name` get `overflow-wrap: anywhere` so unbroken long names wrap instead of overflowing the page.
+- [x] Verify: 320px overflow 0px; 120-char name overflow 0px; mobile 390px and desktop 1280px still 0 overflow.
+
+### Task 19.5 — AI cache-hit secret consistency
+- [x] `checkSecretUnlocks` now also unlocks Glimmer Sprout when the rescued item shows a cached AI recipe (`aiCache` by item name), and `handleAiRecipe` arms `aiRecipeReady` on a cache hit. Rescuing a second same-named item earns the secret just like a fresh AI fetch.
+- [x] Verify: audit section 13 passes (cached recipe opens on second card, secret captured on rescue).
+
+### Task 19.6 — Minor polish
+- [x] `.btn-ai` (icon-only) gains `title="Get an AI recipe"` for sighted users (aria-label already existed).
+- [x] Fixed the v2 suite's night-mode check to be time-independent (one click flips, three clicks return); the old version assumed UTC night and failed during UTC daytime. Suite now 27/27.
+- [x] Verify: v2 suite 27/27, Codex secrets suite 18/18, Phase 19 audit 55/55; `node --check` passes on app.js, recipes.js, worker.js; 0 new em dashes.
+
+### Task 19.7 — Docs + deploy
+- [x] Add `tests/test-phase19-audit.cjs` to the `FILES` list in `deploy_freshtrack.py`.
+- [x] README: note Phase 18 + Phase 19 were completed directly against the spec (Kiro plan credits exhausted), and record the Phase 19 audit counts.
+- [x] Update `rencana-submit-kiroween.md`: AI recipes done, Phase 18 done, Phase 19 done; video v1 is stale, re-record from v2; submit target 30 Nov-2 Des.
+- [x] Deploy via `deploy_freshtrack.py`; verify live from GitHub Pages (curl fresh app.js/styles.css content + repo blob SHA equals local).
