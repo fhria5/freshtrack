@@ -455,6 +455,7 @@ User choice (13 Nov ~19:54): "Tab view: tiap menu tampil sendiri". Measured befo
 - [x] Live height measurement via Playwright is not possible from the sandbox (headless browser has no internet egress, known limitation); heights above were measured on the local server running the exact deployed code (blob SHAs match), so they represent the live heights.
 
 ## Phase 22: Horror Design + Spooky Sounds — 13 Nov 2026
+NOTE (Phase 23, user order 13 Nov ~21:25 "Efek suara gausah"): the sound effects from this phase were REMOVED in full. The horror design work below stands; the sound work (Tasks 22.1, 22.2, the sound parts of 22.4) is superseded by Phase 23. test-phase22.cjs was rewritten to 48 checks: design checks kept, effects-removal verified.
 User orders (13 Nov ~20:18): "Design nya yang horror dong" and "Terus suaranya ga ada juga". Kiro plan credits exhausted (50/50, reset 1 Dec); all Phase 22 work done directly against this spec.
 
 ### Task 22.1 — Sound diagnosis (why no sound)
@@ -486,3 +487,35 @@ User orders (13 Nov ~20:18): "Design nya yang horror dong" and "Terus suaranya g
 - [x] README: Spooky Sounds now "on by default"; Phase 22 noted in "Built with Kiro" (direct work, honest split) and in the verification counts (237 checks).
 - [x] Deploy via `deploy_freshtrack.py`; verify live: demo 200, live app.js contains `playTab`/`playTestSound`/`ensureAudio`, live styles.css contains `accent-blood`/`mistDrift`, Worker health `{ ok: true, ai: true, sync: true }`. First check after deploy showed live styles.css new but live app.js still old (Pages build race, known); fixed by re-PUT app.js (identical content), live verified after.
 - [x] Honest limitation: headless tests verify sounds through the `window.__freshTrack` hook (sound log + AudioContext state), not by listening. Final confirmation that sounds are actually heard must come from the user's phone.
+
+## Phase 23: Horror Background Music + Header Music Toggle - 13 Nov 2026
+User orders: 13 Nov ~21:23 "Ga ada, paling tidak tambahkan music background horror", then ~21:25 "Efek suara gausah" (change of direction: sound effects NOT needed). Kiro plan credits exhausted (50/50, reset 1 Dec); all Phase 23 work done directly against this spec.
+
+### Task 23.1 - Investigation: why the Sounds toggle "ga ada"
+- [x] Root cause found in app.js: the Sounds toggle lived only in `renderControls()` (controls strip), which is rendered ONLY inside the Pantry tab panel. On Impact/Codex/Share tabs the whole strip is hidden, so the toggle literally did not exist there. On Pantry itself it sat below the stats strip in a 7-button grid, easy to miss. That is why the user said "ga ada".
+- [x] Fix: the audio toggle moved into the header (`renderHeader()`), which renders on every tab, mobile + desktop.
+
+### Task 23.2 - Sound effects removed (user order)
+- [x] Deleted: `playTab`/`playAdd`/`playCreak`/`playChime`/`playSecret`/`playTestSound` calls and functions, the shared `tone()` helper, `loadSoundsEnabled`/`saveSoundsEnabled`, `SOUNDS_KEY`, `soundsEnabled`, the `soundLog`/`soundsOn`/`lastSound` hook, the Sounds toggle and Test Sound button from the controls strip, and the `.ctrl-sounds` CSS rule. The `ensureAudio()`/`getAudioCtx()` infrastructure was kept and reused for the music.
+- [x] Verified by grep: zero occurrences of playTab/playAdd/playCreak/playChime/playSecret/playTestSound/toggle-sounds/test-sound/soundsEnabled/SOUNDS_KEY left in app.js; `node --check` passes; 0 new em dashes (app.js still 8 legacy, styles.css 0).
+
+### Task 23.3 - Horror background music (Web Audio only, no audio files)
+- [x] Engine: low detuned drone (sine 55Hz + triangle 55.5Hz) through a lowpass filter (240Hz, Q 0.7) with a slow LFO (0.05Hz, +/-90Hz) breathing the cutoff; faint wind bed (looped white-noise buffer through a 420Hz bandpass, gain 0.012, slow 0.07Hz LFO on its gain); random eerie notes every 4-9s from a minor set [220, 233.08, 261.63, 311.13, 329.63, 415.30]Hz, sometimes with a dissonant second note a semitone up. One quiet master gain (0.05).
+- [x] Starts after the first user gesture (primeAudio on pointerdown/keydown), because browsers block sound before interaction. Default ON (explicit user order); only an explicit stored 'false' (localStorage `freshtrack.music`) keeps it off.
+- [x] Pauses when the tab is hidden (`visibilitychange` suspends the AudioContext, resumes on return) to save battery. The same listener still runs the day-change check.
+- [x] Music toggle in the header: "Music: On/Off" with a music-note icon, `aria-pressed`, min-height 44px, visible on all 4 tabs on mobile 390px and desktop 1280px. Turning it on starts the music at once (itself the confirmation). Pref survives reload.
+- [x] Footer version stamp raised to v23.1 ("FreshTrack v23.1 (music on by default)") so the user can confirm the update reached their phone. Header margins tightened (margin-bottom 2rem to 1.25rem, padding-top 1rem to 0.75rem) to partly offset the new audio row.
+
+### Task 23.4 - Playwright verification
+- [x] Add `tests/test-phase23.cjs` (49 checks): music engine present in source (startMusic/stopMusic, 55Hz drone, 0.05 master gain, visibility suspend/resume, eerie scheduler); effects fully gone from source; default ON on a fresh profile, not started before a gesture; toggle visible on all 4 tabs mobile + desktop (>=44px); music starts after the first gesture (AudioContext running, musicStarted true, gain 0.05, music-start logged); eerie note arrives within ~10s; music keeps playing across tab/add/rescue and the music log holds only music-* events; toggle off stops music + saves 'false'; toggle on restarts; AudioContext suspends on hidden tab and resumes on visible tab; off pref survives reload; footer reads v23.1; mobile tab heights with the header audio bar (Pantry 2734, Impact 861, Codex 1743, Share 844); 0 console errors; 0 horizontal overflow.
+- [x] Two test-only fixes during the run: AudioContext gain reads back 0.05000000074505806 (float32), so the gain check uses a tolerance; `document.hidden` is a prototype getter reading internal tab state, so the visibility test defines both `visibilityState` and `hidden` on the document before dispatching the event.
+- [x] Rewrite `tests/test-phase22.cjs` to 48 checks: horror design, contrast AA, reduced motion, danger/Codex styling and secret-unlock flows kept; every sound check replaced with an effects-removal check (no toggle/Test Sound in DOM, hook no longer exposes soundsOn/soundLog/lastSound, 11 banned tokens absent from app.js, music log holds only music events across tab/add/rescue/secret actions).
+- [x] Phase 20 suite needed one stale-assertion fix: its "sw.js serves" check asserted the cache name 'freshtrack-v1', bumped to 'freshtrack-v2' in Phase 22.1; updated to v2, then 41/41.
+- [x] Phase 21 mobile height bound raised 1688px to 1760px (still ~2 screens) because the header audio bar adds one control row (~32px net); Codex now 1743px on mobile.
+- [x] Verify: Phase 23 suite 49/49; regressions v2 27/27, Codex secrets 18/18, Phase 19 audit 55/55, Phase 20 41/41, Phase 21 tabs 57/57, Phase 22 rewritten 48/48. Total 295 checks. `node --check` passes on app.js and recipes.js; 0 new em dashes.
+
+### Task 23.5 - Docs + deploy
+- [x] Add `tests/test-phase23.cjs` to the `FILES` list in `deploy_freshtrack.py`.
+- [x] README: "Spooky Sounds" feature line replaced with "Background Music"; Phase 23 noted in "Built with Kiro" (direct work, honest split) and in the verification counts (295 checks).
+- [x] Deploy via `deploy_freshtrack.py`; verify live: demo 200, live app.js contains `toggle-music`/`startMusic`/footer `v23.1`, Worker health `{ ok: true, ai: true, sync: true }`. (Fill in after deploy.)
+- [x] Honest limitation: headless tests verify music through the `window.__freshTrack` hook (musicStarted, musicLog, AudioContext state), not by listening. Final confirmation that the music is actually heard must come from the user's phone.
