@@ -196,6 +196,7 @@ async function main() {
       const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
       fs.writeFileSync(pngPath, Buffer.from(b64, 'base64'));
     }
+    if ((await page.getAttribute('#add-item-toggle', 'aria-expanded')) === 'false') await page.click('#add-item-toggle');
     await page.fill('#item-name', 'Test Milk');
     await page.fill('#item-expiry', new Date(Date.now() + 86400000).toISOString().slice(0, 10));
     await page.setInputFiles('#item-photo', pngPath);

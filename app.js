@@ -30,6 +30,7 @@
   var tonightLoading = false;       // Cook Tonight request in flight
   var audioCtx = null;              // lazily-created Web Audio context
   var musicNodes = null;            // live music graph, null when music is off
+  var addFormOpen = false;          // Pantry add-item form expanded? (collapsed by default)
   var activeTab = 'pantry';         // visible tab: 'pantry' | 'impact' | 'codex' | 'share'
   var TAB_IDS = ['pantry', 'impact', 'codex', 'share'];
   var TAB_TITLES = { pantry: 'Pantry', impact: 'Impact Dashboard', codex: 'Monster Codex', share: 'Share the Horror' };
@@ -1144,7 +1145,8 @@
     return '' +
       '<section class="form-panel" aria-label="Add food item">' +
         '<h2 class="panel-title">The Haunted Pantry</h2>' +
-        '<form id="add-item-form" novalidate>' +
+        '<button type="button" class="btn-add-toggle" id="add-item-toggle" data-action="toggle-add-form" aria-expanded="' + (addFormOpen ? 'true' : 'false') + '" aria-controls="add-item-form">Add item</button>' +
+        '<form id="add-item-form" novalidate' + (addFormOpen ? '' : ' hidden') + '>' +
           '<div class="form-field">' +
             '<label for="item-name">Item Name</label>' +
             '<input type="text" id="item-name" name="name" placeholder="e.g., Spinach" required autocomplete="off" aria-describedby="error-name">' +
@@ -1910,6 +1912,7 @@
     if (photo) item.photo = photo;
     items.push(item);
     saveItems();
+    addFormOpen = false; // successful add collapses the form again
     var u = getUrgency(item);
     announce(item.name + ' added to the fridge. ' + getDaysText(u.daysRemaining) + '.');
     render();
@@ -2283,6 +2286,21 @@
     } else if (action === 'freeze') {
       e.preventDefault();
       freezeItem(target.getAttribute('data-id'));
+
+    } else if (action === 'toggle-add-form') {
+      e.preventDefault();
+      var addForm = document.getElementById('add-item-form');
+      addFormOpen = !addFormOpen;
+      target.setAttribute('aria-expanded', addFormOpen ? 'true' : 'false');
+      if (addForm) {
+        if (addFormOpen) {
+          addForm.removeAttribute('hidden');
+          var nameInput = addForm.elements['name'];
+          if (nameInput) nameInput.focus();
+        } else {
+          addForm.setAttribute('hidden', '');
+        }
+      }
 
     } else if (action === 'summon-demo') {
       e.preventDefault();

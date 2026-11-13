@@ -147,6 +147,7 @@ async function main() {
       fs.writeFileSync(pngPath, Buffer.from(b64, 'base64'));
     }
     const postsBefore = postCount;
+    if ((await page.getAttribute('#add-item-toggle', 'aria-expanded')) === 'false') await page.click('#add-item-toggle');
     await page.fill('#item-name', 'Photo Milk');
     await page.fill('#item-expiry', new Date(Date.now() + 86400000).toISOString().slice(0, 10));
     await page.setInputFiles('#item-photo', pngPath);
@@ -217,6 +218,7 @@ async function main() {
       updatedAt: Date.now() + 60000,
     };
     const before409 = await page.evaluate(() => document.querySelectorAll('.card').length);
+    if ((await page.getAttribute('#add-item-toggle', 'aria-expanded')) === 'false') await page.click('#add-item-toggle');
     await page.fill('#item-name', 'Local Only Item');
     await page.fill('#item-expiry', new Date(Date.now() + 86400000).toISOString().slice(0, 10));
     await page.click('.btn-submit');
@@ -256,6 +258,7 @@ async function main() {
       status: (document.getElementById('household-status') || {}).textContent || '',
       code: (document.querySelector('.household-code') || {}).textContent || '',
     }));
+    if ((await page4.getAttribute('#add-item-toggle', 'aria-expanded')) === 'false') await page4.click('#add-item-toggle');
     await page4.fill('#item-name', 'Offline Item');
     await page4.fill('#item-expiry', new Date(Date.now() + 86400000).toISOString().slice(0, 10));
     await page4.click('.btn-submit');

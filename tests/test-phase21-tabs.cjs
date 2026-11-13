@@ -201,6 +201,7 @@ async function main() {
     await desk.click('#tab-pantry');
     await desk.waitForTimeout(400);
     // Add an item via the form.
+    if ((await desk.getAttribute('#add-item-toggle', 'aria-expanded')) === 'false') await desk.click('#add-item-toggle');
     await desk.fill('#item-name', 'Tab Test Milk');
     await desk.fill('#item-expiry', new Date(Date.now() + 86400000).toISOString().slice(0, 10));
     await desk.click('.btn-submit');

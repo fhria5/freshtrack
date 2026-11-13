@@ -162,6 +162,7 @@ async function main() {
     await page.evaluate(() => localStorage.clear());
     await page.goto(BASE, { waitUntil: 'load' });
     await page.waitForTimeout(400);
+    if ((await page.getAttribute('#add-item-toggle', 'aria-expanded')) === 'false') await page.click('#add-item-toggle');
     await page.click('.btn-submit');
     await page.waitForTimeout(300);
     const val = await page.evaluate(() => ({
@@ -174,6 +175,7 @@ async function main() {
     check('empty submit adds no item', val.cards === 0, 'cards=' + val.cards);
     check('invalid input flagged aria-invalid', val.nameInvalid === 'true', 'aria-invalid=' + val.nameInvalid);
     // Fix the errors: fill and submit, errors clear.
+    if ((await page.getAttribute('#add-item-toggle', 'aria-expanded')) === 'false') await page.click('#add-item-toggle');
     await page.fill('#item-name', 'Milk');
     await page.fill('#item-expiry', daysFromNow(3));
     await page.click('.btn-submit');
@@ -381,6 +383,7 @@ async function main() {
     await page.waitForSelector('.card .ai-recipe', { timeout: 20000 });
     // Add a second same-named item via the form, in the SAME page session:
     // the AI cache lives in memory only, so a reload would wipe it.
+    if ((await page.getAttribute('#add-item-toggle', 'aria-expanded')) === 'false') await page.click('#add-item-toggle');
     await page.fill('#item-name', 'Bananas');
     await page.fill('#item-expiry', new Date(Date.now() + 86400000).toISOString().slice(0, 10));
     await page.click('.btn-submit');
