@@ -139,7 +139,9 @@ async function main() {
     check('mobile: every tab shorter than the old 4023px page', Object.values(mobHeights).every((h) => h < 4023), JSON.stringify(mobHeights));
     // Phase 23: the header audio bar adds one control row (~32px net after
     // tightening the header margins); bound raised 1688 to 1760, still ~2 screens.
-    check('mobile: Impact/Codex/Share tabs fit ~2 screens (<=1760px)', mobHeights.impact <= 1760 && mobHeights.codex <= 1760 && mobHeights.share <= 1760, JSON.stringify(mobHeights));
+    // Phase 24: the Codex secret progress bars/text add ~80px to the Codex
+    // tab; bound raised 1760 to 1840, still ~2 screens.
+    check('mobile: Impact/Codex/Share tabs fit ~2 screens (<=1840px)', mobHeights.impact <= 1840 && mobHeights.codex <= 1840 && mobHeights.share <= 1840, JSON.stringify(mobHeights));
     await mob.close();
 
     // 4. Desktop: tab bar visible, bottom nav hidden; tab bar switches tabs.
