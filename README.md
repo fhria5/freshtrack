@@ -42,6 +42,8 @@ https://fhria5.github.io/freshtrack/
 - **Daily Reminder** — browser notification + in-app "Today's Horrors" list of
   items expiring today or tomorrow
 - **Background Music** — horror ambient loop (Web Audio only: low drone + wind + eerie notes, on by default since Phase 23; Music toggle in the header, visible on every tab). Sound effects were removed in Phase 23 on user order.
+- **Freeze** — ❄️ Freeze button on every item card extends its expiry by 14 days (Phase 24); not a rescue, not waste, stats untouched, syncs to the household pantry like any other change.
+- **Codex progress** — secret monsters now show their progress on locked cards (Phase 24): Triple Threat "n / 3 rescued today" with a progress bar, Void King a 2-step checklist; unlock conditions unchanged.
 - **Share Card** — canvas-generated image with your rescue stats for
   #KiroweenHackathon26
 - **Haunted Household** - share one pantry with your whole household
@@ -103,7 +105,12 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    (horror background music: Web Audio drone + wind + eerie notes,
    Music toggle moved into the header so it is visible on every tab;
    sound effects removed entirely on user order) was also completed
-   directly against the spec for the same reason.
+   directly against the spec for the same reason. Phase 24
+   (Freeze button: +14 days expiry per item; Codex secret progress:
+   Triple Threat n/3 bar and Void King 2-step checklist, unlock
+   conditions unchanged; merged from the user's uploaded file, whose
+   fake OCR / fake sync link / Tailwind rewrite was not used) was also
+   completed directly against the spec for the same reason.
 3. **Steering** - `.kiro/steering/` holds `product.md`, `tech.md`, and
    `structure.md`, describing the app as it actually is: vanilla JS, the
    localStorage keys, the Codex migration, the palette tokens, the 44px
@@ -137,7 +144,11 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    tab, pause on hidden tab, pref persistence, effects fully removed)
    and rewrote the Phase 22 suite to 48 checks (design kept,
    effects-removal verified); all seven suites pass together
-   (295 checks).
+   (295 checks). Phase 24 added a 52-check suite (Freeze +14 days
+   exact, stats untouched, survives reload, debounced pantry sync
+   POST; Codex Triple Threat 0/3-1/3-2/3-captured and Void King
+   2-step checklist, unlocks unchanged) and all eight suites pass
+   together (347 checks).
 
 The `.kiro` directory in this repo is the evidence of that workflow.
 
