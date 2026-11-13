@@ -1,0 +1,1 @@
+{"mcpServers":{"freshtrack":{"args":["mcp-server/server.mjs"],"autoApprove":["get_health","get_pantry","list_household_status"],"command":"node","disabled":false,"env":{}}}}
