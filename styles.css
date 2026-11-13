@@ -1388,3 +1388,166 @@ body.night-mode .night-eyes {
     padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 0.5rem);
   }
 }
+
+/* ===== Recipe category filters ===== */
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.filter-chip {
+  min-height: var(--tap-target);
+  min-width: var(--tap-target);
+  padding: 0.5rem 0.9rem;
+  background-color: var(--bg-panel);
+  color: var(--text-primary);
+  border: 1px solid var(--border-spooky);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s, color 0.2s;
+}
+
+.filter-chip:hover,
+.filter-chip:focus-visible {
+  border-color: var(--accent-wary);
+}
+
+.filter-chip.active {
+  border-color: var(--accent-wary);
+  color: var(--accent-wary);
+  background-color: rgba(224, 164, 74, 0.1);
+}
+
+/* ===== AI recipes ===== */
+.ai-section {
+  margin-top: 0.75rem;
+}
+
+.btn-ai {
+  min-width: var(--tap-target);
+  min-height: var(--tap-target);
+  padding: 0.4rem;
+  background: none;
+  border: 1px solid var(--border-spooky);
+  border-radius: 8px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.btn-ai:hover,
+.btn-ai:focus-visible {
+  border-color: var(--accent-wary);
+  background-color: rgba(224, 164, 74, 0.1);
+}
+
+.ai-toggle {
+  min-height: var(--tap-target);
+  padding: 0.5rem 1rem;
+  background-color: var(--bg-panel);
+  color: var(--text-primary);
+  border: 1px solid var(--border-spooky);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ai-toggle:hover,
+.ai-toggle:focus-visible {
+  border-color: var(--accent-wary);
+}
+
+.ai-recipe {
+  margin-top: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border-spooky);
+  border-radius: 8px;
+  background-color: var(--bg-panel);
+}
+
+.ai-badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--accent-wary);
+  border-radius: 12px;
+  color: var(--accent-wary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ai-title {
+  margin: 0.6rem 0 0.2rem;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.ai-time {
+  margin: 0 0 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.ai-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 0;
+  color: var(--text-muted);
+}
+
+.ai-spinner {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 2px solid var(--border-spooky);
+  border-top-color: var(--accent-wary);
+  border-radius: 50%;
+  animation: ai-spin 0.9s linear infinite;
+}
+
+@keyframes ai-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ai-fallback-note {
+  margin: 0.6rem 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.ai-fallback-list {
+  margin-top: 0.5rem;
+}
+
+/* ===== Cook Tonight modal ===== */
+.modal-tonight {
+  max-width: 560px;
+  text-align: left;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.modal-tonight .modal-title {
+  text-align: center;
+}
+
+.tonight-uses {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.tonight-body .recipe-entry {
+  margin-bottom: 0.5rem;
+}
