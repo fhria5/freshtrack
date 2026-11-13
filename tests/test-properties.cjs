@@ -1,5 +1,6 @@
-// FreshTrack Phase 26 property-based tests: invariants of the shipped code,
-// checked over hundreds of seeded random cases each.
+// FreshTrack Phase 26 property-based tests (PURE - no browser, no deps):
+// invariants of the shipped code, checked over hundreds of seeded random
+// cases each.
 //
 // The properties run against the REAL functions extracted verbatim from
 // app.js (brace-balanced extraction, evaluated with stubs only for their
@@ -7,17 +8,15 @@
 // historyLog). Nothing here re-implements app logic; a change to app.js
 // changes what is tested. The recipe filter runs the exact filter
 // expression from renderRecipeListInner over the real RECIPES bank.
-// A short browser smoke check (port 8906 pattern) proves the shipped app
-// still loads.
-// Run from the repo root:
-//   NODE_PATH=/home/hatch/workspace/shoppal-v2/node_modules node tests/test-properties.cjs
-// Serves the repo on port 8906 itself and stops the server when done.
-const { chromium } = require('playwright');
-const { spawn } = require('node:child_process');
+//
+// Zero dependencies beyond Node itself (only node:fs): run anywhere with
+// plain `node tests/test-properties.cjs`, including the Kiro Web sandbox,
+// which has no Playwright/Chromium. The browser smoke check that used to
+// live here moved to tests/test-properties-browser.cjs (needs Playwright).
+// Split: Phase 28 follow-up, 14 Nov 2026.
 const fs = require('node:fs');
 
 const REPO = '/home/hatch/workspace/freshtrack';
-const BASE = 'http://127.0.0.1:8906/';
 const results = [];
 let failures = 0;
 
@@ -237,30 +236,6 @@ async function main() {
     if (bar > 3 || bar !== Math.min(3, nToday)) { threatBad = 'bar ' + bar + ' for ' + nToday + ' rescued today'; break; }
   }
   check('prop: Triple Threat bar never exceeds 3 (250 random histories)', threatBad === null, threatBad || 'counter exact, bar clamped');
-
-  // ===== Browser smoke: the shipped app still loads (port 8906 pattern) =====
-  const server = spawn('python3', ['-m', 'http.server', '8906', '--directory', REPO], { stdio: 'ignore' });
-  await new Promise((r) => setTimeout(r, 1200));
-  const browser = await chromium.launch({
-    executablePath: '/home/hatch/.cache/ms-playwright/chromium-1254/chrome-linux64/chrome',
-    args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'],
-  });
-  try {
-    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    const errors = [];
-    page.on('console', (msg) => {
-      if (msg.type() === 'error' && msg.text().indexOf('ERR_TUNNEL_CONNECTION_FAILED') === -1) errors.push(msg.text());
-    });
-    page.on('pageerror', (err) => errors.push('pageerror: ' + err.message));
-    await page.goto(BASE, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(300);
-    const footer = await page.evaluate(() => document.body.innerText.indexOf('FreshTrack v27.1') !== -1);
-    check('prop: app loads, footer v27.1 (browser smoke)', footer);
-    check('prop: 0 non-network console errors on load', errors.length === 0, errors.join(' | '));
-  } finally {
-    await browser.close();
-    server.kill();
-  }
 
   const passed = results.filter((r) => r.ok).length;
   console.log(passed + '/' + results.length + ' passed');
