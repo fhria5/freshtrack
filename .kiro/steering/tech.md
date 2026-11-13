@@ -25,8 +25,11 @@
 - `freshtrack.history` - Impact Dashboard event log
 - `freshtrack.codex` - Monster Codex, shape
   `{ level: { captured: bool, count: number } }` for levels
-  `fresh | wary | danger | rotten`. Old data stored plain booleans;
-  the loader migrates boolean values into this shape. Keep the migration.
+  `fresh | wary | danger | rotten`, plus a `secrets` block
+  `{ secretFresh | secretWary | secretDanger | secretRotten: bool }`
+  for the 4 secret monsters. Old data stored plain booleans;
+  the loader migrates boolean values into this shape, and saves
+  without a secrets block load with all secrets locked. Keep the migration.
 - `freshtrack.streak` - daily rescue streak `{ count, lastDate }`
 - `freshtrack.nightmode` - Night Mode preference `auto | on | off`
 - `freshtrack.sounds` - Spooky Sounds on/off (default off)
