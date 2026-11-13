@@ -64,16 +64,53 @@ https://fhria5.github.io/freshtrack/
 
 Vanilla HTML/CSS/JS. No build step, no dependencies. Self-hosted
 Creepster font. Works as a static site, installable as a PWA
-(manifest + service worker `sw.js`, app shell cached offline). AI
-recipes run through a classic Cloudflare Worker (`worker/worker.js`)
-that proxies Gemini (`gemini-3.5-flash-lite`); the key lives in the
-Worker secret `GEMINI_API_KEY` and is never shipped to the browser.
-Until that secret is installed the Worker answers 503 `ai_unavailable`
-and the app uses its rule-based recipes instead. The same Worker also
-stores shared household pantries in Workers KV (`PANTRY_KV`,
-namespace `freshtrack-pantry`): `GET/POST /api/pantry`. D1 is not
-usable with the stored Cloudflare credential (auth error 10000), so
-KV is the server store; see `worker/bind_kv.py`.
+(manifest + service worker `sw.js`, app shell cached offline). Behind
+it is a real backend: one classic Cloudflare Worker
+(`worker/worker.js`) on `grokingstore.my.id/freshtrack-ai/*` with
+three endpoints — `POST /api/recipe`, `GET/POST /api/pantry`, and
+`GET /api/health`.
+
+**AI recipes.** The Worker proxies the Verboo router
+(OpenAI-compatible, model `glm-5.3-flash`); the key lives in the
+Worker secret `VERBOO_API_KEY` and is never shipped to the browser.
+The prompt contract demands JSON only (temperature 0.7, max 800
+tokens, 15 s abort timeout) and the reply is validated
+(`parseRecipe`: title, non-empty ingredients and steps, numeric
+`timeMinutes`) before it reaches the UI. Until a working key is
+installed the Worker answers 503 `ai_unavailable` and the app uses
+its rule-based recipes instead. (The Worker originally proxied
+Gemini; `GEMINI_API_KEY` is still stored, unused, for rollback.)
+
+**Shared pantry (Haunted Household).** The same Worker stores
+household pantries in Workers KV (`PANTRY_KV`, namespace
+`freshtrack-pantry`). A household is an anonymous 6-character code
+(no 0/O/1/I/L) plus a per-device id — no account, no personal data.
+Writes are debounced 1.5 s, last-write-wins by `updatedAt` with a
+5-second grace window, and a stale write gets HTTP 409 with the fresh
+server copy attached so the client adopts it instead of overwriting
+it. Caps: 64 KB JSON and 200 items per pantry, 10 devices per
+household; every write is shape-validated (400 otherwise). Photos are
+stripped from the sync payload and never leave the device.
+localStorage stays the offline source of truth, so the app works with
+no connection. D1 is not usable with the stored Cloudflare
+credential (auth error 10000), so KV is the server store; see
+`worker/bind_kv.py`.
+
+**Guardrails.** CORS is an allowlist (`fhria5.github.io` plus local
+dev origins), never `*`. Recipe and pantry endpoints share an
+in-memory sliding-window rate limit of 30 requests per IP per minute
+(429 with a 60 s retry hint). Health reports capability as booleans
+only.
+
+**MCP.** `mcp-server/` is a Node MCP server (SDK 1.32.2, stdio) that
+exposes the same live Worker through four read-only tools
+(`get_health`, `get_recipe`, `get_pantry`,
+`list_household_status`); registered in `.kiro/settings/mcp.json`
+and verified live with an SDK client.
+
+Tests: 380 Playwright checks (v2 + Codex + Phases 19–25) plus a
+property suite of 12 checks over 1,511 seeded random cases
+(`tests/test-properties.cjs`).
 
 ## Built with Kiro
 
