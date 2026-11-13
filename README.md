@@ -44,19 +44,33 @@ https://fhria5.github.io/freshtrack/
 - **Spooky Sounds** — synthesized Web Audio effects (off by default)
 - **Share Card** — canvas-generated image with your rescue stats for
   #KiroweenHackathon26
+- **Haunted Household** - share one pantry with your whole household
+  through an anonymous 6-character code (no account, no personal data).
+  The pantry syncs through the Cloudflare Worker (Workers KV); the app
+  keeps working offline with localStorage and adopts the server copy
+  only when it is newer. Photos stay on the device
+- **Installable (PWA)** - manifest + offline service worker; install it
+  from the browser and it opens full-screen, with the app shell cached
+  for offline use
 - **Bottom navigation** (mobile) — Pantry / Impact / Codex / Share
 - **Demo Pantry** — one tap seeds sample items across all urgency levels
-- **Offline-first** — everything persists in localStorage; no backend, no account
+- **Offline-first** — everything persists in localStorage; the server
+  pantry is an optional sync layer, never a requirement
 
 ## Tech
 
-Vanilla HTML/CSS/JS. No build step, no dependencies, no backend database.
-Self-hosted Creepster font. Works as a static site. AI recipes run through
-a classic Cloudflare Worker (`worker/worker.js`) that proxies Gemini
-(`gemini-3.5-flash-lite`); the key lives in the Worker secret
-`GEMINI_API_KEY` and is never shipped to the browser. Until that secret is
-installed the Worker answers 503 `ai_unavailable` and the app uses its
-rule-based recipes instead.
+Vanilla HTML/CSS/JS. No build step, no dependencies. Self-hosted
+Creepster font. Works as a static site, installable as a PWA
+(manifest + service worker `sw.js`, app shell cached offline). AI
+recipes run through a classic Cloudflare Worker (`worker/worker.js`)
+that proxies Gemini (`gemini-3.5-flash-lite`); the key lives in the
+Worker secret `GEMINI_API_KEY` and is never shipped to the browser.
+Until that secret is installed the Worker answers 503 `ai_unavailable`
+and the app uses its rule-based recipes instead. The same Worker also
+stores shared household pantries in Workers KV (`PANTRY_KV`,
+namespace `freshtrack-pantry`): `GET/POST /api/pantry`. D1 is not
+usable with the stored Cloudflare credential (auth error 10000), so
+KV is the server store; see `worker/bind_kv.py`.
 
 ## Built with Kiro
 
@@ -75,7 +89,10 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    Codex monsters) and Phase 19 (polish audit: AA contrast fixes, a
    stored-XSS fix for item photos, small-screen layout fixes) were
    likewise completed directly against the spec, since the Kiro plan
-   credits stayed exhausted.
+   credits stayed exhausted. Phase 20 (score plan: server pantry sync
+   via Workers KV, Haunted Household shared pantry, PWA installable,
+   Kiro bonus/hook investigation, video v2) was also completed directly
+   against the spec for the same reason.
 3. **Steering** - `.kiro/steering/` holds `product.md`, `tech.md`, and
    `structure.md`, describing the app as it actually is: vanilla JS, the
    localStorage keys, the Codex migration, the palette tokens, the 44px
@@ -93,7 +110,10 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    night mode, and photo. Phase 19 added a 55-check polish audit
    (contrast, tap targets, overflow, malformed storage, AI failure modes,
    share flows) and the v2 (27 checks) and Codex secret (18 checks)
-   suites pass alongside it.
+   suites pass alongside it. Phase 20 added a 41-check suite (cloud sync
+   create/join/409/offline/leave, photo stripped from server pushes,
+   PWA manifest + service worker registration) and all four suites pass
+   together (141 checks).
 
 The `.kiro` directory in this repo is the evidence of that workflow.
 
