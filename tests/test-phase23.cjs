@@ -179,7 +179,7 @@ async function main() {
 
     // ===== Footer version stamp =====
     const version = await page.evaluate(() => (document.querySelector('.footer-version') || {}).textContent || '');
-    check('version: footer reads v23.1', version.indexOf('v23.1') !== -1, version.trim());
+    check('version: footer reads v24.1', version.indexOf('v24.1') !== -1, version.trim());
 
     // ===== Desktop: toggle visible in the header on every tab =====
     const desk = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -204,7 +204,9 @@ async function main() {
       mobHeights[tab] = await page.evaluate(() => document.documentElement.scrollHeight);
     }
     console.log('INFO | mobile heights with header audio bar (px, demo pantry): ' + JSON.stringify(mobHeights));
-    check('mobile: Impact/Codex/Share tabs fit ~2 screens (<=1760px)', mobHeights.impact <= 1760 && mobHeights.codex <= 1760 && mobHeights.share <= 1760, JSON.stringify(mobHeights));
+    // Phase 24: the Codex secret progress bars/text add ~80px to the Codex
+    // tab; bound raised 1760 to 1840, still ~2 screens.
+    check('mobile: Impact/Codex/Share tabs fit ~2 screens (<=1840px)', mobHeights.impact <= 1840 && mobHeights.codex <= 1840 && mobHeights.share <= 1840, JSON.stringify(mobHeights));
 
     // ===== No console errors overall =====
     check('0 console errors during Phase 23 checks', errors.length === 0, errors.slice(0, 3).join(' ; '));
