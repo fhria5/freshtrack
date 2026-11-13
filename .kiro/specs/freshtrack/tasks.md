@@ -484,5 +484,5 @@ User orders (13 Nov ~20:18): "Design nya yang horror dong" and "Terus suaranya g
 ### Task 22.5 — Docs + deploy
 - [x] Add `tests/test-phase22.cjs` to the `FILES` list in `deploy_freshtrack.py`.
 - [x] README: Spooky Sounds now "on by default"; Phase 22 noted in "Built with Kiro" (direct work, honest split) and in the verification counts (237 checks).
-- [x] Deploy via `deploy_freshtrack.py`; verify live: demo 200, live app.js contains `playTab`/`playTestSound`/`ensureAudio`, live styles.css contains `accent-blood`/`mistDrift`, Worker health `{ ok: true, ai: true, sync: true }`.
+- [x] Deploy via `deploy_freshtrack.py`; verify live: demo 200, live app.js contains `playTab`/`playTestSound`/`ensureAudio`, live styles.css contains `accent-blood`/`mistDrift`, Worker health `{ ok: true, ai: true, sync: true }`. First check after deploy showed live styles.css new but live app.js still old (Pages build race, known); fixed by re-PUT app.js (identical content), live verified after.
 - [x] Honest limitation: headless tests verify sounds through the `window.__freshTrack` hook (sound log + AudioContext state), not by listening. Final confirmation that sounds are actually heard must come from the user's phone.
