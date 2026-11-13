@@ -231,3 +231,97 @@ Implementation tasks for the FreshTrack app. Each task is self-contained and ver
 - [x] Build the nav once in `init()` and append it to `<body>` (outside `#app`) so it survives the full `#app` re-render on every state change; re-observe the recreated section elements from `render()` via `refreshNavTargets()`.
 - [x] Keep everything vanilla JS, no new dependencies.
 - [x] Verify: `node --check app.js` passes; CSS braces balanced (195/195); DOM-shim smoke test passes (29/29) — nav renders with 4 items + labels, section anchors exist, Pantry click smooth-scrolls and highlights, Share (nav) and the existing Share Card control both invoke `handleShare()`, and the `IntersectionObserver` flips the active highlight to Impact and clears Pantry.
+
+## Phase 13: Recipe Bank 25 + Category Filters (v2)
+
+### Task 13.1 — Expand the recipe bank to 25 recipes
+- [x] In `recipes.js`, add a `category` field to every recipe: one of `Breakfast`, `Lunch`, `Snack`, `Dinner`.
+- [x] Assign categories to the existing 10 recipes: Banana Bread Snack, Sauteed Spinach Dinner, Veggie Scramble Breakfast, Chicken Soup Dinner, Tomato Pasta Sauce Dinner, Grilled Cheese Lunch, Fried Rice Dinner, Smoothie Bowl Breakfast, Stale Bread Croutons Snack, Milk Pancakes Breakfast.
+- [x] Add 15 new recipes (name, description, ingredients, instructions, category), each targeting common expiring items (oats, potatoes, apples, mushrooms, carrots, herbs, onions, eggs, milk, bread, cheese, tomatoes, bananas, chicken, yogurt, rice): Overnight Oats (Breakfast), Cheese Omelette (Breakfast), Potato Hash (Breakfast), Apple Crumble (Snack), Tomato Bruschetta (Snack), Garlic Herb Butter Pasta (Dinner), Chicken Stir Fry (Dinner), Shakshuka (Lunch), Cheesy Baked Potatoes (Dinner), Banana Smoothie (Breakfast), Carrot Ginger Soup (Lunch), Bread Pudding (Snack), Yogurt Herb Dip (Snack), Creamy Mushroom Pasta (Dinner), French Toast (Breakfast).
+- [x] Keep the existing ingredient keyword style so `matchRecipes` keeps working (item names and category keywords in ingredient strings).
+- [x] Verify: `RECIPES.length` is 25; every recipe has a category in the four allowed values; `node --check recipes.js` passes.
+
+### Task 13.2 — Category filter chips on the recipe list
+- [x] Add a `recipeFilter` state variable (default `All`) in `app.js`.
+- [x] In `renderRecipeSuggestions`, render filter chips above the recipe list: All, Breakfast, Lunch, Snack, Dinner. Chips are real `<button>` elements, min 44px tap target, `aria-pressed` reflects the active filter.
+- [x] Clicking a chip sets `recipeFilter` and re-renders the recipe list only (no page reload, no state loss).
+- [x] When the active filter matches zero recipes for that item, show: "No recipes in this category for this item. Try another filter."
+- [x] Verify: with a danger item, switching chips filters the visible recipes; the active chip has `aria-pressed="true"`; 0 console errors.
+
+## Phase 14: AI Recipes + Cook Tonight (v2)
+
+### Task 14.1 — AI recipe client with silent fallback
+- [x] Add constants in `app.js`: `AI_API_URL = 'https://grokingstore.my.id/freshtrack-ai/api/recipe'` and `AI_TIMEOUT_MS = 15000`.
+- [x] Implement `fetchAiRecipe(ingredients, mode)`: POST JSON `{ ingredients: [names], mode: 'single' | 'tonight' }` with an AbortController timeout of 15 seconds.
+- [x] Validate the response shape: `{ recipe: { title, ingredients[], steps[], timeMinutes } }`. Return the recipe object on success, `null` on ANY failure (network error, timeout, non-2xx status, invalid JSON, missing fields, 503 ai_unavailable).
+- [x] Never surface a raw error to the user: any failure returns `null` and the caller falls back to rule-based recipes.
+- [x] Verify: with the Worker secret not yet installed, `fetchAiRecipe` returns `null` (503 path) and no exception escapes; with a mocked 200 response it returns the parsed recipe.
+
+### Task 14.2 — "AI Recipe" button on item cards
+- [x] Add an "AI Recipe" button to every item card (next to the Rescue/Rescue Recipes controls), min 44px, `aria-label="Get an AI recipe for [name]"`.
+- [x] On click: disable the button, show a loading state ("Summoning a recipe...") announced via `#sr-announcer`, call `fetchAiRecipe([item.name], 'single')`.
+- [x] On success: render the AI recipe inline on the card with a visible "AI-generated" badge, title, ingredient list, numbered steps, and time. The badge uses the existing amber accent only (no new colors).
+- [x] On failure (`null`): render the rule-based matched recipes instead, with a small note: "AI is resting. Showing pantry recipes instead." Never show a raw error, status code, or stack trace.
+- [x] Cache the last AI result in memory only (keyed by item name, lowercase) so re-opening the same card does not call the API again.
+- [x] Verify: Playwright with the live Worker (secret absent) shows the fallback note and rule-based recipes, zero console errors, zero raw error text on screen.
+
+### Task 14.3 — "Cook Tonight" mode
+- [x] Add a "Cook Tonight" button in the controls strip. It is enabled only when at least one item is at `danger` or `rotten` urgency; otherwise it is disabled with a `title` explaining no urgent items exist.
+- [x] On click: collect the names of all `danger` and `rotten` items (max 12), call `fetchAiRecipe(names, 'tonight')`, show a loading state.
+- [x] On success: open a panel (reuse the modal pattern from the confirm dialog) titled "Tonight's Rescue Plan" showing the AI recipe (title, ingredients, steps, time) plus a line listing which pantry items the plan uses.
+- [x] On failure (`null`): show the best rule-based matches instead: recipes matching the urgent items, ranked by how many urgent items each recipe covers, top 3, with the note "AI is resting. Showing pantry recipes instead."
+- [x] Guard against double clicks: disable the button while a request is in flight.
+- [x] Verify: with demo pantry summoned (danger Bananas + rotten Chicken), Cook Tonight shows a plan covering them; with no urgent items the button is disabled; zero console errors.
+
+### Task 14.4 — AI styles
+- [x] Style the AI recipe card, "AI-generated" badge, loading state, and Cook Tonight panel using only existing palette tokens and the existing modal/panel patterns.
+- [x] Loading indicator is CSS-only and disabled under `prefers-reduced-motion`.
+- [x] Verify: 0 targets under 44px, AA contrast kept, no new colors introduced.
+
+## Phase 15: Gemini Proxy Worker (v2)
+
+### Task 15.1 — Classic Cloudflare Worker `freshtrack-ai`
+- [x] Create `worker/worker.js`: a classic service worker (`addEventListener('fetch', ...)`) with NO build step and NO npm dependencies.
+- [x] `GET /api/health` returns `{ ok: true, ai: <GEMINI_API_KEY present>, app: 'freshtrack-ai' }` as JSON.
+- [x] `POST /api/recipe` accepts `{ ingredients: [1..12 strings, each max 60 chars], mode: 'single' | 'tonight' }`. Invalid body returns 400 JSON `{ error: 'bad_request' }`.
+- [x] When `GEMINI_API_KEY` is missing or empty, return 503 JSON `{ error: 'ai_unavailable' }` (never a 500, never a stack trace).
+- [x] When the key exists: call Gemini REST `generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent` with `?key=`, 15 second timeout, a short strict-JSON prompt asking for exactly `{ title, ingredients[], steps[], timeMinutes }`. Parse loosely (accept a JSON block inside extra text), validate the shape, and return `{ recipe: {...}, source: 'ai' }`.
+- [x] On any Gemini failure (timeout, non-2xx, bad JSON, bad shape) return 502 JSON `{ error: 'ai_failed' }`.
+- [x] Rate limit: max 30 requests per IP per minute (in-memory map, best effort). Over the limit return 429 JSON `{ error: 'rate_limited', retryAfterSeconds }`.
+- [x] CORS: allow only `https://fhria5.github.io` and localhost origins; answer OPTIONS with 204. All responses are JSON with `Content-Type: application/json` and no stack traces.
+- [x] Create `worker/deploy_worker.py`: PUT the script only to Cloudflare account `4ee061cebe8412fcb40c43f95cc534f0`, worker name `freshtrack-ai`, using the vault surrogate `custom.cloudflare` exactly like `~/workspace/ai-church-hackathon/deploy_upload_only.py`. Never PATCH settings (that could wipe bindings). Create the Worker route `grokingstore.my.id/freshtrack-ai/*` on zone `804f88e1923492d8f0a5e402acf6a767` if it does not already exist.
+- [x] Verify: `node --check worker/worker.js` passes; `curl /api/health` returns 200 JSON with `ai: false` before the secret is installed; `curl POST /api/recipe` returns 503 JSON `{ error: 'ai_unavailable' }` (not a 500, not HTML).
+
+## Phase 16: Steering + Hooks (v2)
+
+### Task 16.1 — Kiro steering docs
+- [x] Create `.kiro/steering/product.md`: what FreshTrack is, Kiroween 2026 Costume Contest, horror theme, English UI, offline-first with AI as progressive enhancement, never show raw errors.
+- [x] Create `.kiro/steering/tech.md`: vanilla JS only, no build step, no frameworks; localStorage keys (`freshtrack.items`, `freshtrack.soulsSaved`, `freshtrack.history`, `freshtrack.codex`, `freshtrack.streak`, `freshtrack.nightmode`, `freshtrack.sounds`); Codex shape `{ level: { captured, count } }` with migration from the old boolean shape; palette tokens; a11y rules (44px targets, `:focus-visible` outline kept, AA contrast); no em dash in UI strings or new comments; grep em dash + emoji check before deploy.
+- [x] Create `.kiro/steering/structure.md`: file map (index.html, styles.css, recipes.js, app.js, worker/worker.js, deploy scripts), render flow (`render()` rebuilds `#app`; bottom nav lives outside `#app`), how to run tests (Playwright in `~/workspace/shoppal-v2/node_modules`, local server on port 8901), deploy via `deploy_freshtrack.py` (GitHub Contents API; Pages build status is not the source of truth, live curl is).
+- [x] Verify: the three files exist under `.kiro/steering/` and describe the repo as it actually is (no invented keys, paths, or commands).
+
+### Task 16.2 — One working Kiro hook
+- [x] Determine the hook format that the installed Kiro CLI actually supports (check `kiro-cli --help`, `kiro-cli hooks` if present, and the CLI docs). Do NOT invent a format.
+- [x] Add exactly one hook that runs on a real event and does real work: after `app.js` or `recipes.js` is edited, run `node --check` on the edited file and report a syntax failure (so a broken file is caught immediately). If the CLI hook system cannot run a command on file edit, implement the closest hook the CLI truly supports and document what it does.
+- [x] Verify the hook is registered by the CLI (list/show hooks, or trigger it by editing a file and observing it run). Record the verification evidence in the task result.
+- [x] If the installed CLI genuinely has no working hook mechanism, say so plainly in the result and in the README (do not fake it).
+
+### Task 16.3 — Ship steering and hooks in the repo
+- [ ] Add `.kiro/steering/*.md` and the hook file(s) to the `FILES` list in `deploy_freshtrack.py`, plus `worker/worker.js`, so the Kiro evidence ships in the public repo.
+- [ ] Verify: after deploy, the steering files and hook file are reachable in the GitHub repo.
+
+## Phase 17: README + Final Verification (v2)
+
+### Task 17.1 — README update
+- [ ] Expand the "Built with Kiro" section: spec-driven development (Phases 1-17), steering docs, the working hook, AI recipes via the Gemini proxy Worker (with rule-based fallback), and the 25-recipe bank with category filters.
+- [ ] Document the new features: AI Recipe button, Cook Tonight mode, recipe category filters, and the Worker endpoint (noting the Worker returns a tidy 503 until `GEMINI_API_KEY` is installed).
+- [ ] Keep the MIT license unchanged.
+- [ ] Verify: README renders correctly; no em dash in new text.
+
+### Task 17.2 — Final verification
+- [ ] `node --check app.js`, `node --check recipes.js`, `node --check worker/worker.js` all pass.
+- [ ] Grep for em dash in all changed files returns nothing; emoji check on changed files passes.
+- [ ] Playwright mobile 390px + desktop 1280px: 0 console errors, 0 targets under 44px, 0 horizontal overflow.
+- [ ] Playwright flow: add item, AI Recipe (falls back cleanly while the secret is absent), rescue, Codex XP gain, streak, night mode, photo upload.
+- [ ] Deploy via `deploy_freshtrack.py`; verify live from GitHub Pages (curl fresh styles.css/app.js content + repo blob SHA equals local).
+- [ ] Report credit usage before vs after (from `kiro-cli chat /usage`).
