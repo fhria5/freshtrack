@@ -16,6 +16,9 @@
   var historyLog = [];              // Impact Dashboard event log
   var capturedMonsters = { fresh: false, wary: false, danger: false, rotten: false };
   var monsterCounts = { fresh: 0, wary: 0, danger: 0, rotten: 0 }; // rescues per level (drives monster level)
+  var secretCaptured = { secretFresh: false, secretWary: false, secretDanger: false, secretRotten: false };
+  var aiRecipeReady = {};   // itemId -> true once a real AI recipe arrived for that item
+  var tonightPlanOpen = false; // true after a Cook Tonight plan is shown, spent by the next rescue
   var streakState = { count: 0, lastDate: null }; // consecutive rescue days
   var soundsEnabled = false;        // Spooky Sounds toggle (default OFF)
   var nightPref = 'auto';           // Night Mode: 'auto' | 'on' | 'off'
@@ -72,6 +75,16 @@
     danger: '\u{1F479}',  // ogre/demon
     rotten: '\u{1F480}'   // skull
   };
+
+  // Secret monsters: hidden in the Codex until their unlock condition is met.
+  // One secret per urgency tier; they have no levels, only a single capture.
+  var SECRET_MONSTERS = {
+    secretFresh: { emoji: '\u2728', name: 'Glimmer Sprout', lore: 'A shy sprout that only blooms when a cook asks the spirits for help.', hint: 'Ask the AI for a recipe, then rescue that item.' },
+    secretWary: { emoji: '\u{1F441}\uFE0F', name: 'Midnight Watcher', lore: 'It opens its single eye only after dark, watching the fridge in silence.', hint: 'Rescue an item while Night Mode is on.' },
+    secretDanger: { emoji: '\u{1F608}', name: 'Triple Threat', lore: 'Three souls in one day? It smells a feast and comes to join it.', hint: 'Rescue 3 items in a single day.' },
+    secretRotten: { emoji: '\u{1F451}', name: 'Void King', lore: 'The king of leftovers bows only to a cook with a plan.', hint: 'Open a Cook Tonight plan, then rescue an item.' }
+  };
+  var SECRET_KEYS = ['secretFresh', 'secretWary', 'secretDanger', 'secretRotten'];
 
   var URGENCY_LABELS = {
     fresh: 'Fresh',
@@ -232,14 +245,16 @@
 
   // ===== Monster Codex Persistence =====
 
-  // Stored shape: { fresh: { captured: bool, count: n }, ... }.
+  // Stored shape: { fresh: { captured: bool, count: n }, ..., secrets: { secretFresh: bool, ... } }.
   // Migrates the old boolean-only shape ({ fresh: true, ... }) automatically.
+  // Saves without a secrets block (from before Phase 18) load with all secrets locked.
   function loadCodex() {
     var fresh = {
       fresh: { captured: false, count: 0 },
       wary: { captured: false, count: 0 },
       danger: { captured: false, count: 0 },
-      rotten: { captured: false, count: 0 }
+      rotten: { captured: false, count: 0 },
+      secrets: { secretFresh: false, secretWary: false, secretDanger: false, secretRotten: false }
     };
     try {
       var raw = localStorage.getItem(CODEX_KEY);
@@ -260,6 +275,12 @@
           };
         }
       }
+      if (parsed.secrets && typeof parsed.secrets === 'object') {
+        for (var s = 0; s < SECRET_KEYS.length; s++) {
+          var sk = SECRET_KEYS[s];
+          if (typeof parsed.secrets[sk] === 'boolean') fresh.secrets[sk] = parsed.secrets[sk];
+        }
+      }
       return fresh;
     } catch (e) {
       return fresh;
@@ -273,6 +294,10 @@
       for (var i = 0; i < levels.length; i++) {
         var lv = levels[i];
         out[lv] = { captured: capturedMonsters[lv], count: monsterCounts[lv] };
+      }
+      out.secrets = {};
+      for (var s = 0; s < SECRET_KEYS.length; s++) {
+        out.secrets[SECRET_KEYS[s]] = !!secretCaptured[SECRET_KEYS[s]];
       }
       localStorage.setItem(CODEX_KEY, JSON.stringify(out));
     } catch (e) {
@@ -300,6 +325,35 @@
       capturedMonsters[level] = true;
       saveCodex();
     }
+  }
+
+  // Captures a secret monster once; announces it so the unlock is visible.
+  function unlockSecret(key) {
+    if (!secretCaptured.hasOwnProperty(key) || secretCaptured[key]) return false;
+    secretCaptured[key] = true;
+    saveCodex();
+    announce('Secret monster captured: ' + SECRET_MONSTERS[key].name + '!');
+    return true;
+  }
+
+  // Checks every secret unlock condition after a rescue. Each condition is
+  // tied to a real feature, so secrets are earned by playing, never bought.
+  function checkSecretUnlocks(itemId) {
+    // Glimmer Sprout: rescued an item that had a real AI recipe.
+    if (aiRecipeReady[itemId]) unlockSecret('secretFresh');
+    // Midnight Watcher: rescue while Night Mode is active.
+    if (nightActive()) unlockSecret('secretWary');
+    // Triple Threat: 3 rescues in a single day (history counts this rescue already).
+    var today = getTodayStr();
+    var n = 0;
+    for (var i = 0; i < historyLog.length; i++) {
+      if (historyLog[i].type === 'rescued' && historyLog[i].date === today) n++;
+    }
+    if (n >= 3) unlockSecret('secretDanger');
+    // Void King: rescue after opening a Cook Tonight plan.
+    if (tonightPlanOpen) unlockSecret('secretRotten');
+    tonightPlanOpen = false;
+    delete aiRecipeReady[itemId];
   }
 
   // ===== Rescue Streak Persistence =====
@@ -841,6 +895,7 @@
       if (recipe) {
         aiCache[key] = recipe;
         aiOpen[key] = true;
+        aiRecipeReady[itemId] = true; // real AI recipe: arms the Glimmer Sprout secret
         announce('AI recipe ready for ' + itemName + '.');
       } else {
         aiFallback[key] = true;
@@ -899,6 +954,7 @@
 
   function openTonightModal(content, names, isAi) {
     closeModal();
+    tonightPlanOpen = true; // a plan is on screen: the next rescue can wake the Void King
 
     var overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -1173,7 +1229,35 @@
     for (var i = 0; i < levels.length; i++) {
       if (capturedMonsters[levels[i]]) n++;
     }
+    for (var s = 0; s < SECRET_KEYS.length; s++) {
+      if (secretCaptured[SECRET_KEYS[s]]) n++;
+    }
     return n;
+  }
+
+  function renderSecretCard(key) {
+    var m = SECRET_MONSTERS[key];
+    var captured = secretCaptured[key];
+    if (captured) {
+      return '' +
+        '<div class="codex-card secret" data-secret="' + key + '" data-state="captured">' +
+          '<span class="codex-monster" aria-hidden="true">' + m.emoji + '</span>' +
+          '<div class="codex-info">' +
+            '<h3 class="codex-name">' + escapeHtml(m.name) + ' <span class="level-badge">Secret</span></h3>' +
+            '<p class="codex-lore">' + escapeHtml(m.lore) + '</p>' +
+            '<span class="codex-badge captured">\u2714 Captured</span>' +
+          '</div>' +
+        '</div>';
+    }
+    return '' +
+      '<div class="codex-card secret" data-secret="' + key + '" data-state="secret">' +
+        '<span class="codex-secret-mark" aria-hidden="true">?</span>' +
+        '<div class="codex-info">' +
+          '<h3 class="codex-name">??? Secret Monster</h3>' +
+          '<p class="codex-lore">' + escapeHtml(m.hint) + '</p>' +
+          '<span class="codex-badge secret">Secret</span>' +
+        '</div>' +
+      '</div>';
   }
 
   function renderCodex() {
@@ -1207,12 +1291,16 @@
         '</div>';
     }).join('');
 
+    var secretCards = SECRET_KEYS.map(function (key) {
+      return renderSecretCard(key);
+    }).join('');
+
     return '' +
       '<section class="codex-section" id="codex" aria-label="Monster Codex">' +
         '<h2 class="section-title">\uD83D\uDCDC Monster Codex</h2>' +
         '<p class="section-sub">Rescue an item at each urgency level to capture its monster. ' +
-          countCaptured() + ' / 4 captured.</p>' +
-        '<div class="codex-grid">' + cards + '</div>' +
+          countCaptured() + ' / 8 captured. Four secret monsters hide in the dark. Find them.</p>' +
+        '<div class="codex-grid">' + cards + secretCards + '</div>' +
       '</section>';
   }
 
@@ -1266,6 +1354,7 @@
       var u = getUrgency(item);
       logEvent('rescued', item.category, u.level);
       captureMonster(u.level);
+      checkSecretUnlocks(item.id);
     }
     items = items.filter(function (it) {
       return it.id !== id;
@@ -2016,6 +2105,9 @@
     for (var i = 0; i < levels.length; i++) {
       capturedMonsters[levels[i]] = codex[levels[i]].captured;
       monsterCounts[levels[i]] = codex[levels[i]].count;
+    }
+    for (var s = 0; s < SECRET_KEYS.length; s++) {
+      secretCaptured[SECRET_KEYS[s]] = !!codex.secrets[SECRET_KEYS[s]];
     }
     streakState = loadStreak();
     soundsEnabled = loadSoundsEnabled();
