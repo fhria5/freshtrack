@@ -2,11 +2,12 @@
  * FreshTrack — Built-in Recipe Bank
  *
  * Pure data file. Defines a global RECIPES array consumed by app.js.
- * Each recipe has: name, description, ingredients (array), instructions (array),
- * and `main` — the real main ingredient(s) this recipe rescues, as singular
- * lowercase food names (e.g. 'banana', 'chicken'). Matching uses `main` first;
- * the category keywords below are only a fallback ("Also try") signal and are
- * never shown to the user as ingredients.
+ * Each recipe has: name, category, description, ingredients (array),
+ * instructions (array), timeMinutes, and `main` — the real main
+ * ingredient(s) this recipe rescues, as singular lowercase food names
+ * (e.g. 'banana', 'chicken'). Matching uses `main` first; the category
+ * keywords below are only a fallback ("Also try") signal and are never
+ * shown to the user as ingredients.
  *
  * Ingredients may contain food item names (e.g., "spinach") or category keywords
  * (e.g., "fresh produce", "dairy products", "meat", "pantry staples", "bakery item")
@@ -637,6 +638,95 @@ const RECIPES = [
       'Fry the slices 2 to 3 minutes per side until golden brown.',
       'Dust with sugar and drizzle with honey.',
       'Serve hot with fruit if you have any.'
+    ]
+  },
+  {
+    name: 'Mac and Cheese',
+    category: 'Dinner',
+    main: ['cheese', 'pasta'],
+    description: 'Creamy stovetop mac and cheese that rescues aging cheese and dried pasta.',
+    timeMinutes: 25,
+    ingredients: [
+      '200 g macaroni',
+      '150 g grated cheese',
+      '1 tbsp butter',
+      '1 tbsp flour',
+      '200 ml milk',
+      'salt',
+      'pepper',
+      'mustard'
+    ],
+    instructions: [
+      'Boil the macaroni in salted water until tender, about 8 minutes, then drain.',
+      'Melt butter in a pan, stir in flour and cook 1 minute.',
+      'Slowly pour in the milk, stirring until the sauce thickens.',
+      'Stir in the grated cheese and a pinch of mustard until melted and smooth.',
+      'Toss the macaroni through the sauce, season with salt and pepper, and serve hot.'
+    ]
+  },
+  {
+    name: 'Cheese Quesadilla',
+    category: 'Lunch',
+    main: ['cheese'],
+    description: 'Crispy folded tortilla with melted cheese — a 10-minute rescue for cheese and tortillas.',
+    timeMinutes: 10,
+    ingredients: [
+      '2 flour tortillas',
+      '100 g grated cheese',
+      '1 tbsp butter',
+      'salsa'
+    ],
+    instructions: [
+      'Melt butter in a pan over medium heat.',
+      'Lay one tortilla flat and sprinkle grated cheese over one half.',
+      'Fold the tortilla and cook 2–3 minutes per side until golden and the cheese melts.',
+      'Cut into wedges and serve with salsa.'
+    ]
+  },
+  {
+    name: 'Spinach Omelette',
+    category: 'Breakfast',
+    main: ['spinach', 'egg'],
+    description: 'Fluffy omelette packed with spinach — a quick breakfast rescue for eggs and wilting leaves.',
+    timeMinutes: 10,
+    ingredients: [
+      '3 eggs',
+      '2 cups fresh spinach',
+      '30 g grated cheese',
+      '1 tbsp butter',
+      'salt',
+      'pepper'
+    ],
+    instructions: [
+      'Whisk 3 eggs with salt and pepper.',
+      'Melt butter in a pan over medium heat and wilt the spinach, about 1 minute.',
+      'Pour in the eggs and cook gently until almost set.',
+      'Sprinkle cheese on top, fold, and cook 1 minute more.',
+      'Slide onto a plate and serve hot.'
+    ]
+  },
+  {
+    name: 'Creamy Spinach Pasta',
+    category: 'Dinner',
+    main: ['spinach', 'pasta'],
+    description: 'Silky garlic cream pasta loaded with spinach — wilting leaves disappear into dinner.',
+    timeMinutes: 20,
+    ingredients: [
+      '200 g pasta',
+      '4 cups fresh spinach',
+      '2 cloves garlic',
+      '150 ml cream',
+      '40 g grated cheese',
+      '1 tbsp olive oil',
+      'salt',
+      'pepper'
+    ],
+    instructions: [
+      'Boil the pasta in salted water until tender, then drain, saving a splash of pasta water.',
+      'Heat olive oil in a pan and sauté minced garlic for 30 seconds.',
+      'Add the spinach and toss until wilted, 2–3 minutes.',
+      'Pour in the cream, simmer 2 minutes, then stir in the grated cheese.',
+      'Toss the pasta through the sauce, season with salt and pepper, and serve hot.'
     ]
   }
 ];

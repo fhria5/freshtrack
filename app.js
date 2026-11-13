@@ -746,9 +746,10 @@
           '</div>' +
         '</div>';
 
-    if (level === 'danger' || level === 'rotten') {
-      html += renderRecipeSuggestions(item);
-    }
+    // Rescue Recipes are shown for every item, not only danger/rotten ones.
+    // The old gate hid the whole section for wary/fresh items, so Cheese
+    // (wary) and Spinach (fresh) had matching recipes but no button at all.
+    html += renderRecipeSuggestions(item);
 
     html += '<div class="ai-section" data-ai-for="' + escapeHtml(item.id) + '">' + renderAiSectionInner(item) + '</div>';
 
@@ -1459,6 +1460,7 @@
       { name: 'Chicken',  category: 'meat',    expiryDate: dateStr(-2) }   // rotten
     ];
 
+    var added = 0;
     for (var i = 0; i < demoItems.length; i++) {
       var demo = demoItems[i];
       // Idempotent: skip demo items whose name already exists (case-insensitive)
@@ -1472,10 +1474,19 @@
         category: demo.category,
         expiryDate: demo.expiryDate
       });
+      added++;
     }
 
     saveItems();
-    announce('Demo pantry summoned: 4 items added.');
+    // Report the true count: a second Summon adds nothing (no duplicates),
+    // so the old fixed "4 items added" message was a lie.
+    if (added === 0) {
+      announce('Demo pantry already complete — nothing new added.');
+    } else if (added === 1) {
+      announce('Demo pantry summoned: 1 item added.');
+    } else {
+      announce('Demo pantry summoned: ' + added + ' items added.');
+    }
     render();
   }
 
