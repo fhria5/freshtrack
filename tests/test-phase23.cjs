@@ -3,9 +3,10 @@
 // test-phase22.cjs). Run from the repo root:
 //   NODE_PATH=/home/hatch/workspace/shoppal-v2/node_modules node tests/test-phase23.cjs
 // Serves the repo on port 8905 itself and stops the server when done.
-// Music: Web Audio only, no audio files. Low detuned drone (55Hz +
-// 55.5Hz) through a breathing lowpass filter, faint wind bed, random
-// eerie notes every few seconds, one quiet master gain (0.05). Starts
+// Music: Web Audio only, no audio files. Low detuned drone (110Hz +
+// 110.5Hz, raised from 55Hz in Phase 25 so phone speakers can play it)
+// through a breathing lowpass filter, faint wind bed, random eerie notes
+// every few seconds, one master gain (0.15, raised from 0.05). Starts
 // after the first user gesture (autoplay policy), default ON, pauses
 // when the tab is hidden. Music toggle lives in the header, visible on
 // every tab. Audio cannot be heard in headless Chrome, so music is
@@ -68,8 +69,8 @@ async function main() {
     const src = fs.readFileSync(REPO + '/app.js', 'utf-8');
     check('music: startMusic exists', src.indexOf('function startMusic(') !== -1);
     check('music: stopMusic exists', src.indexOf('function stopMusic(') !== -1);
-    check('music: drone 55Hz present', src.indexOf('frequency.value = 55') !== -1);
-    check('music: master gain is 0.05', src.indexOf('master.gain.value = 0.05') !== -1);
+    check('music: drone 110Hz present', src.indexOf('frequency.value = 110') !== -1);
+    check('music: master gain is 0.15', src.indexOf('master.gain.value = 0.15') !== -1);
     check('music: visibility suspend/resume wired', src.indexOf('visibilitychange') !== -1 && src.indexOf('ctx.suspend()') !== -1 && src.indexOf('ctx.resume()') !== -1);
     check('music: eerie notes scheduled', src.indexOf('scheduleEerieNote') !== -1 && src.indexOf('EERIE_NOTES') !== -1);
     for (const token of ['playTab(', 'playAdd(', 'playCreak(', 'playChime(', 'playSecret(', 'playTestSound(', 'toggle-sounds', 'test-sound']) {
@@ -103,7 +104,7 @@ async function main() {
     const started = await musicState(page);
     check('music: AudioContext running after gesture', started.state === 'running', started.state);
     check('music: started after gesture', started.started === true, JSON.stringify(started));
-    check('music: master gain is 0.05 (quiet)', Math.abs(started.gain - 0.05) < 0.001, 'gain=' + started.gain);
+    check('music: master gain is 0.15 (louder)', Math.abs(started.gain - 0.15) < 0.001, 'gain=' + started.gain);
     check('music: music-start logged', started.log.indexOf('music-start') !== -1, started.log.join(','));
 
     // ===== Eerie notes arrive on their own schedule =====
@@ -179,7 +180,7 @@ async function main() {
 
     // ===== Footer version stamp =====
     const version = await page.evaluate(() => (document.querySelector('.footer-version') || {}).textContent || '');
-    check('version: footer reads v24.1', version.indexOf('v24.1') !== -1, version.trim());
+    check('version: footer reads v25.1', version.indexOf('v25.1') !== -1, version.trim());
 
     // ===== Desktop: toggle visible in the header on every tab =====
     const desk = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -206,7 +207,10 @@ async function main() {
     console.log('INFO | mobile heights with header audio bar (px, demo pantry): ' + JSON.stringify(mobHeights));
     // Phase 24: the Codex secret progress bars/text add ~80px to the Codex
     // tab; bound raised 1760 to 1840, still ~2 screens.
-    check('mobile: Impact/Codex/Share tabs fit ~2 screens (<=1840px)', mobHeights.impact <= 1840 && mobHeights.codex <= 1840 && mobHeights.share <= 1840, JSON.stringify(mobHeights));
+    // Phase 25: a rescue fills the Triple Threat progress and levels a
+    // monster, adding ~21px to the Codex tab (1823 fresh -> 1844 after a
+    // rescue); bound raised 1840 to 1860, still ~2 screens.
+    check('mobile: Impact/Codex/Share tabs fit ~2 screens (<=1860px)', mobHeights.impact <= 1860 && mobHeights.codex <= 1860 && mobHeights.share <= 1860, JSON.stringify(mobHeights));
 
     // ===== No console errors overall =====
     check('0 console errors during Phase 23 checks', errors.length === 0, errors.slice(0, 3).join(' ; '));
