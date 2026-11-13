@@ -1,0 +1,1 @@
+{"hooks":[{"action":{"command":"node scripts/check-saved-js.mjs","type":"command"},"description":"Runs node --check on app.js or recipes.js whenever Kiro saves or edits one, so a syntax break is caught immediately instead of reaching the live site.","matcher":"(app|recipes)\\.js$","name":"Check JS syntax on save","timeout":30,"trigger":"PostFileSave"}],"version":"v1"}
