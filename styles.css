@@ -1309,14 +1309,158 @@ body.night-mode .night-eyes {
 
   .codex-grid {
     grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .codex-card {
+    padding: 0.7rem 0.85rem;
   }
 
   .controls-strip {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 
   .ctrl-btn {
     width: 100%;
+  }
+}
+
+/* ===== Tab View (Phase 21) ===== */
+.tab-bar {
+  display: none; /* desktop only; mobile uses the bottom nav */
+}
+
+.tab-panel {
+  margin-bottom: 1rem;
+}
+
+.tab-title {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  color: var(--accent-wary);
+  margin-bottom: 1rem;
+}
+
+.tab-title:focus {
+  outline: 2px solid var(--accent-wary);
+  outline-offset: 2px;
+}
+
+/* Compact household bar inside the Pantry tab. */
+.tab-panel .household-section {
+  padding: 0.9rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.tab-panel .household-section .section-title {
+  font-size: 1.15rem;
+}
+
+.tab-panel .household-section .section-sub {
+  margin-bottom: 0.6rem;
+}
+
+/* Share tab. */
+.share-section {
+  background-color: var(--bg-panel);
+  border: 2px solid var(--border-spooky);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.share-stats {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.share-stat {
+  flex: 1 1 30%;
+  min-width: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.85rem 0.5rem;
+  background-color: var(--bg-deep);
+  border: 1px solid var(--border-spooky);
+  border-radius: 8px;
+}
+
+.share-stat-value {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  color: var(--accent-wary);
+}
+
+.share-stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+  text-align: center;
+}
+
+.share-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.share-btn {
+  width: 100%;
+  font-size: 1rem;
+  padding: 0.75rem 1rem;
+}
+
+.share-note {
+  margin-top: 1rem;
+  text-align: center;
+  color: var(--accent-wary);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+@media (min-width: 769px) {
+  .tab-bar {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 800;
+    gap: 0.25rem;
+    background-color: var(--bg-deep);
+    border-bottom: 2px solid var(--border-spooky);
+    padding: 0.5rem 0;
+    margin-bottom: 1.5rem;
+  }
+
+  .tab-btn {
+    flex: 1 1 0;
+    min-height: var(--tap-target);
+    padding: 0.5rem 0.25rem;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 8px 8px 0 0;
+    color: var(--text-muted);
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+  }
+
+  .tab-btn:hover,
+  .tab-btn:focus-visible {
+    color: var(--text-primary);
+    background-color: var(--bg-panel);
+  }
+
+  .tab-btn[aria-selected="true"] {
+    color: var(--accent-wary);
+    border-bottom-color: var(--accent-wary);
   }
 }
 
@@ -1459,8 +1603,9 @@ body.night-mode .night-eyes {
 }
 
 .btn-ai {
-  min-width: var(--tap-target);
-  min-height: var(--tap-target);
+  min-width: 46px; /* 44px floor + 2px cushion: exact-44px buttons trip the
+                      audit on subpixel rounding (rect 43.99 < 44) */
+  min-height: 46px;
   padding: 0.4rem;
   background: none;
   border: 1px solid var(--border-spooky);
