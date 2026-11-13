@@ -14,6 +14,7 @@
   --accent-fresh: #6abf69;
   --accent-wary: #e0a44a;
   --accent-danger: #d64545;
+  --accent-danger-text: #ef7a7a; /* readable danger text on dark bg (accent-danger alone is too dark) */
   --accent-rotten: #8b1a1a;
   --accent-rotten-text: #e06565;   /* readable text on dark bg (accent-rotten alone is too dark) */
   --text-primary: #e8e0f0;
@@ -300,7 +301,7 @@ select option {
   width: 100%;
   min-height: var(--tap-target);
   padding: 0.75rem;
-  background: linear-gradient(135deg, var(--accent-danger), var(--accent-rotten));
+  background: linear-gradient(135deg, #c93a3a, var(--accent-rotten));
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -428,6 +429,7 @@ select option {
   font-size: 1.3rem;
   color: var(--text-primary);
   margin-bottom: 0.15rem;
+  overflow-wrap: anywhere;
 }
 
 .card-meta {
@@ -466,12 +468,12 @@ select option {
 
 .badge-danger {
   background-color: rgba(214, 69, 69, 0.2);
-  color: var(--accent-danger);
+  color: var(--accent-danger-text);
 }
 
 .badge-rotten {
   background-color: rgba(139, 26, 26, 0.3);
-  color: #d64545;
+  color: var(--accent-rotten-text);
 }
 
 .urgency-label {
@@ -483,7 +485,7 @@ select option {
 
 .urgency-fresh { color: var(--accent-fresh); }
 .urgency-wary { color: var(--accent-wary); }
-.urgency-danger { color: var(--accent-danger); }
+.urgency-danger { color: var(--accent-danger-text); }
 .urgency-rotten { color: var(--accent-rotten-text); }
 
 /* ===== Card Actions ===== */
@@ -846,13 +848,15 @@ select option {
   font-weight: 600;
   color: var(--text-primary);
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .horror-when {
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--accent-danger);
+  color: var(--accent-danger-text);
   font-weight: 600;
 }
 
@@ -1274,10 +1278,12 @@ body.night-mode .night-eyes {
 
   .stats-strip {
     gap: 0.5rem;
+    flex-wrap: wrap;
   }
 
   .stat {
-    min-width: 80px;
+    min-width: 0;
+    flex: 1 1 40%;
     padding: 0.4rem 0.5rem;
   }
 
@@ -1574,93 +1580,4 @@ body.night-mode .night-eyes {
 
 .tonight-body .recipe-entry {
   margin-bottom: 0.5rem;
-}
-
-/* ===== Share Card / Info modals ===== */
-.modal-share {
-  max-width: 660px;
-  text-align: center;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal-info {
-  max-width: 440px;
-  text-align: center;
-}
-
-.modal-info-body {
-  text-align: left;
-  color: var(--text-primary);
-  font-size: 0.95rem;
-  line-height: 1.55;
-  margin-bottom: 1rem;
-}
-
-.modal-info-body p + p {
-  margin-top: 0.5rem;
-}
-
-.modal-info-note {
-  color: var(--accent-wary);
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
-}
-
-.share-loading {
-  color: var(--text-muted);
-  font-style: italic;
-  padding: 2rem 0;
-}
-
-.share-img {
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: 8px;
-  border: 1px solid var(--border-spooky);
-  margin: 0.5rem 0 1rem;
-}
-
-.share-note {
-  color: var(--accent-wary);
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
-}
-
-.btn-share {
-  background-color: var(--accent-fresh);
-  color: #0d0a14;
-}
-
-.btn-share:hover,
-.btn-share:focus-visible {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(106, 191, 105, 0.4);
-}
-
-.btn-download {
-  background-color: var(--accent-wary);
-  color: #0d0a14;
-}
-
-.btn-download:hover,
-.btn-download:focus-visible {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(224, 164, 74, 0.4);
-}
-
-.btn-modal:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-/* ===== "Also try" recipe group ===== */
-.also-try-heading {
-  font-size: 0.85rem;
-  color: var(--accent-wary);
-  font-weight: 600;
-  margin: 0.75rem 0 0.25rem;
 }
