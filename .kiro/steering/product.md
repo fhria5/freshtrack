@@ -1,4 +1,4 @@
-# FreshTrack — Product
+# FreshTrack - Product
 
 FreshTrack is an anti food-waste tracker with a horror twist, built for the
 Kiroween 2026 Costume Contest. The user adds food items with expiry dates;
