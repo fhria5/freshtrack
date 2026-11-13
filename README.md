@@ -41,7 +41,7 @@ https://fhria5.github.io/freshtrack/
   (downscaled before saving, max 20 photos)
 - **Daily Reminder** — browser notification + in-app "Today's Horrors" list of
   items expiring today or tomorrow
-- **Spooky Sounds** — synthesized Web Audio effects (off by default)
+- **Spooky Sounds** — synthesized Web Audio effects (on by default since Phase 22; toggle + Test Sound button in the controls strip)
 - **Share Card** — canvas-generated image with your rescue stats for
   #KiroweenHackathon26
 - **Haunted Household** - share one pantry with your whole household
@@ -95,7 +95,11 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    against the spec for the same reason. Phase 21 (tab view navigation:
    one tab visible at a time, desktop sticky tab bar + mobile bottom
    nav as tab switchers, deep-link hashes, Share tab) was also completed
-   directly against the spec for the same reason.
+   directly against the spec for the same reason. Phase 22 (deeper horror
+   design: blood-red accents, drifting mist, flickering title, glowing
+   danger cards; Spooky Sounds on by default with a Test Sound button and
+   sounds on tab switch, add, rescue, and secret unlock) was also
+   completed directly against the spec for the same reason.
 3. **Steering** - `.kiro/steering/` holds `product.md`, `tech.md`, and
    `structure.md`, describing the app as it actually is: vanilla JS, the
    localStorage keys, the Codex migration, the palette tokens, the 44px
@@ -119,7 +123,11 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    together (141 checks). Phase 21 added a 57-check tab-view suite
    (tab switching by click/hash/deep link, one visible panel, focus +
    aria, per-tab heights, feature flows inside tabs, skip link) and all
-   five suites pass together (198 checks).
+   five suites pass together (198 checks). Phase 22 added a 39-check
+   suite (horror design tokens and effects, AA contrast re-audit,
+   sounds default on, AudioContext running after a gesture, Test Sound
+   button, sounds on tab/add/rescue/secret events, pref persistence)
+   and all six suites pass together (237 checks).
 
 The `.kiro` directory in this repo is the evidence of that workflow.
 
