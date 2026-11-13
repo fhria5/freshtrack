@@ -25,6 +25,13 @@ function check(name, ok, detail) {
   console.log((ok ? 'PASS' : 'FAIL') + ' | ' + name + (detail ? ' | ' + detail : ''));
 }
 
+function localISO(offsetDays) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return d.getFullYear() + '-' + m + '-' + day;
+}
 async function main() {
   const server = spawn('python3', ['-m', 'http.server', '8904', '--directory', REPO], { stdio: 'ignore' });
   await new Promise((r) => setTimeout(r, 1200));
@@ -166,7 +173,7 @@ async function main() {
     await page.waitForTimeout(300);
 
     // ===== Add a fresh item: still works, no pop sound =====
-    const future = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
+    const future = localISO(10);
     if ((await page.getAttribute('#add-item-toggle', 'aria-expanded')) === 'false') await page.click('#add-item-toggle');
     await page.fill('#item-name', 'Test Lettuce');
     await page.fill('#item-expiry', future);
@@ -183,7 +190,7 @@ async function main() {
     check('pantry: rescue removes the item', afterRescue === beforeRescue - 1, beforeRescue + ' -> ' + afterRescue);
 
     // ===== Danger add: still works, no creak sound =====
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const tomorrow = localISO(1);
     if ((await page.getAttribute('#add-item-toggle', 'aria-expanded')) === 'false') await page.click('#add-item-toggle');
     await page.fill('#item-name', 'Test Milk');
     await page.fill('#item-expiry', tomorrow);
