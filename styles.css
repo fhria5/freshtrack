@@ -129,8 +129,8 @@ h1, h2, h3, h4 {
 
 /* ===== Header ===== */
 .header {
-  margin-bottom: 2rem;
-  padding-top: 1rem;
+  margin-bottom: 1.25rem;
+  padding-top: 0.75rem;
 }
 
 .app-title {
@@ -166,6 +166,15 @@ h1, h2, h3, h4 {
   text-align: center;
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* Header audio bar: the Music toggle lives here so it is visible on
+   every tab (the old Sounds toggle lived in the Pantry controls strip
+   only, which is why users on other tabs could not find it). */
+.audio-bar {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
 }
 
 /* ===== Stats Strip ===== */
@@ -848,7 +857,7 @@ select option {
   background-color: var(--bg-panel);
 }
 
-.ctrl-sounds[aria-pressed="true"] {
+.ctrl-music[aria-pressed="true"] {
   border-color: var(--accent-fresh);
   color: var(--accent-fresh);
 }
