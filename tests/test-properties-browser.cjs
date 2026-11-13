@@ -10,7 +10,7 @@
 const { chromium } = require('playwright');
 const { spawn } = require('node:child_process');
 
-const REPO = '/home/hatch/workspace/freshtrack';
+const REPO = require('node:path').join(__dirname, '..');
 const BASE = 'http://127.0.0.1:8906/';
 const results = [];
 let failures = 0;
