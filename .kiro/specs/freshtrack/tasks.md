@@ -593,3 +593,22 @@ Source: user order "No 2 harus dikerjakan" = Technological Implementation (crite
 - [x] Deploy via deploy_freshtrack.py; verify via GitHub API that the files landed in repo fhria5/freshtrack; verify live demo still 200 with footer v25.1 (site itself unchanged).
 - [x] Full regression: all ten suites pass together (380 checks).
 
+## Phase 27: Merge Kiro Web Collapsible Form + Test Date Fixes - 14 Nov 2026
+
+- [x] Kiro Web built the collapsible add-item form on branch `feature/collapsible-add-item-form` (commit 7e137bb, session "Make Pantry Add-Item Form Collapsible", 1.20 bonus credits; bonus 1.32/4000 after, plan untouched 0/50). Button "Add item" (native button, `aria-expanded`, `aria-controls="add-item-form"`), form closed by default, focus moves to Item Name on open, closes again after a successful add, stays open on failed validation. Files: app.js (+20), styles.css (+31), 7 test files (open-form guard lines only, no assertion changed).
+- [x] Branch verified before merge: diff reviewed clean; full regression in a branch clone 371/380 raw, all 9 failures proven to be a test-only date flake (tests compute "tomorrow" in UTC, app uses the local WITA date; fails only 00:00-08:00 WITA), identical failures on main. With a test-only local-date fix the suite is 380/380.
+- [x] Test-only date fix applied to main: local-date `iso()` in `tests/test-codex-secrets.cjs` and `tests/test-phase24.cjs`, `localISO()` in `tests/test-phase22.cjs`. No app code changed for these.
+- [x] Merged via GitHub API (merge commit c4cf152; main was 3a093b4, branch tip 7e137bb). User first held the merge (14 Nov 00:32), then chose Phase 27 (14 Nov 00:37).
+- [x] Cache + footer bumped for the merge (Phase 22.1 lesson): `sw.js` CACHE_NAME `freshtrack-v5` -> `freshtrack-v6`; footer `FreshTrack v25.1 (louder music)` -> `FreshTrack v27.1 (collapsible form)`. Footer/cache assertions updated in test-phase20, test-phase23, test-phase24, test-phase25-music, test-properties.
+- [x] Full regression on merged main: 380/380 (v2 27 + Codex 18 + Phase 19 55 + Phase 20 41 + Phase 21 57 + Phase 22 48 + Phase 23 49 + Phase 24 52 + Phase 25 21 + properties 12).
+- [x] Deploy via deploy_freshtrack.py; verify live demo 200 + footer v27.1 + sw.js freshtrack-v6 + health ok/ai/sync true.
+- [x] README Tech fixed (Gemini -> Verboo) and write-up maximized with a full "Backend & architecture" section (14 Nov); collapsible form now listed as a live feature.
+
+## Phase 28 follow-up: PBT split so the pure checks run in Kiro Web - 14 Nov 2026
+
+Source: user order "Solusi" (14 Nov ~07:35), answering the Phase 28 report's open fix. In Phase 28 the PBT suite could not run in the Kiro Web sandbox because `tests/test-properties.cjs` required Playwright at the top (`Cannot find module 'playwright'`), even though only its last 2 checks needed a browser. The 10 pure property checks never needed Playwright at all.
+
+- [x] `tests/test-properties.cjs` is now PURE: Playwright require, `spawn`, and the browser smoke block removed; only `node:fs` remains. Runs with plain `node tests/test-properties.cjs`, no NODE_PATH, no Playwright. 10/10 locally (4 static + freeze 250 + monotonic 250 + boundaries 11 + filter 250 + codes 500 + threat 250 = 1,511 cases).
+- [x] New `tests/test-properties-browser.cjs`: the 2 browser smoke checks only (app loads footer v27.1, 0 non-network console errors, port 8906 pattern). Still needs Playwright + NODE_PATH. 2/2 locally.
+- [x] Total unchanged: 12/12 property checks (10 pure + 2 smoke); full regression still 380/380.
+- [x] `tests/test-properties-browser.cjs` added to FILES in deploy_freshtrack.py; README + freshtrack-qa.md updated.
