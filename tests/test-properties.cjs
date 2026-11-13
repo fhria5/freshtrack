@@ -9,14 +9,14 @@
 // changes what is tested. The recipe filter runs the exact filter
 // expression from renderRecipeListInner over the real RECIPES bank.
 //
-// Zero dependencies beyond Node itself (only node:fs): run anywhere with
+// Zero dependencies beyond Node itself (only node:fs and node:path): run
 // plain `node tests/test-properties.cjs`, including the Kiro Web sandbox,
 // which has no Playwright/Chromium. The browser smoke check that used to
 // live here moved to tests/test-properties-browser.cjs (needs Playwright).
 // Split: Phase 28 follow-up, 14 Nov 2026.
 const fs = require('node:fs');
 
-const REPO = '/home/hatch/workspace/freshtrack';
+const REPO = require('node:path').join(__dirname, '..');
 const results = [];
 let failures = 0;
 
