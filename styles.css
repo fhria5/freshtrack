@@ -558,10 +558,11 @@ select option {
   background: transparent;
   border: 1px solid var(--accent-fresh);
   color: var(--accent-fresh);
-  min-width: var(--tap-target);
-  min-height: var(--tap-target);
-  width: var(--tap-target);
-  height: var(--tap-target);
+  min-width: 46px; /* 44px floor + 2px cushion: exact-44px buttons trip the
+                      audit on subpixel rounding (rect 43.99 < 44) */
+  min-height: 46px;
+  width: 46px;
+  height: 46px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 1rem;
@@ -590,15 +591,41 @@ select option {
   50% { box-shadow: 0 0 16px rgba(106, 191, 105, 0.6); }
 }
 
+.btn-freeze {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid #7dd3fc;
+  color: #7dd3fc;
+  min-width: 46px; /* 44px floor + 2px cushion, see .btn-ai */
+  min-height: 46px;
+  width: 46px;
+  height: 46px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-freeze:hover,
+.btn-freeze:focus-visible {
+  background-color: #7dd3fc;
+  color: var(--bg-deep);
+  box-shadow: 0 0 16px rgba(125, 211, 252, 0.55);
+}
+
 .btn-delete {
   flex-shrink: 0;
   background: transparent;
   border: 1px solid var(--border-spooky);
   color: var(--text-muted);
-  min-width: var(--tap-target);
-  min-height: var(--tap-target);
-  width: var(--tap-target);
-  height: var(--tap-target);
+  min-width: 46px; /* 44px floor + 2px cushion, see .btn-ai */
+  min-height: 46px;
+  width: 46px;
+  height: 46px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 1rem;
