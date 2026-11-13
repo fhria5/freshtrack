@@ -519,3 +519,32 @@ User orders: 13 Nov ~21:23 "Ga ada, paling tidak tambahkan music background horr
 - [x] README: "Spooky Sounds" feature line replaced with "Background Music"; Phase 23 noted in "Built with Kiro" (direct work, honest split) and in the verification counts (295 checks).
 - [x] Deploy via `deploy_freshtrack.py`; verify live: demo 200, live app.js contains `toggle-music`/`startMusic`/footer `v23.1`, Worker health `{ ok: true, ai: true, sync: true }`. (Fill in after deploy.)
 - [x] Honest limitation: headless tests verify music through the `window.__freshTrack` hook (musicStarted, musicLog, AudioContext state), not by listening. Final confirmation that the music is actually heard must come from the user's phone.
+
+## Phase 24: Freeze + Codex Secret Progress - 13 Nov 2026
+
+Source: user uploaded `FreshTrack___Save_Them_Before_They_Rot__Kiroween_2026_Upgrade__23_jwpu.html` (22:17) with the order "Update", then chose (22:18) "Gabung fitur barunya saja (Freeze + progres Codex)". The uploaded file is a standalone Tailwind-CDN rewrite (different storage key, fake OCR from filename/presets, fake cross-device sync, no AI recipes, no KV sync, no PWA, sound effects back, no background music) and was NOT deployed as-is. Only Freeze + Codex progress were merged into the current app. Kiro plan credits exhausted (50/50, reset 1 Dec); all Phase 24 work done directly against this spec.
+
+### Task 24.1 - Freeze button (per item card)
+- [x] `freezeItem(id)`: extends the item's expiryDate by exactly +14 days from its current expiry, then `saveItems()` (persists locally + schedules the debounced KV cloud sync, same path as any other item change). No `logEvent`, no souls/history change, no sound, no recipe.
+- [x] Button `❄️` (`.btn-freeze`, ice-blue #7dd3fc, 44x44 tap target) in `renderItemCard` between Rescue and Delete, with `title` + `aria-label` ("Freeze <name>, extend expiry by 14 days"). Click dispatch `data-action="freeze"` added to `handleClick`.
+- [x] Announce to the live region ("<name> frozen. New expiry YYYY-MM-DD.").
+
+### Task 24.2 - Codex secret progress (display only)
+- [x] `secretProgressHtml(key)` in `renderSecretCard` (locked cards only): Triple Threat shows an xp-bar + "n / 3 rescued today" (n = `countRescuedToday()`, capped at 3); Void King shows a 2-step checklist "Step 1: Cook Tonight opened ✔/⬜ · Step 2: Rescue after ⬜" (step 1 = `tonightPlanOpen`; step 2 completes on the rescue that captures it). Glimmer Sprout + Midnight Watcher unchanged (hint only, no progress bar).
+- [x] Unlock conditions NOT changed (`checkSecretUnlocks` untouched: n >= 3 rescues/day, `tonightPlanOpen` spent by the next rescue).
+- [x] Regular monsters already had level progress ("n rescues · m more to Lv. X" + xp-bar); verified in the test, not re-added. Reuses existing `.xp-bar`/`.xp-fill`/`.xp-text` styles (blood/amber, AA contrast, reduced-motion respected).
+
+### Task 24.3 - Versions + cache
+- [x] Footer stamp v23.1 -> v24.1. Service worker cache `freshtrack-v3` -> `freshtrack-v4` (Phase 22.1 lesson: the cache name must rise or the user's phone keeps the old app.js). Cache assertion in `tests/test-phase20.cjs` updated v3 -> v4.
+
+### Task 24.4 - Playwright verification
+- [x] Add `tests/test-phase24.cjs` (52 checks, port 8906): static (freezeItem/+14 math/button/saveItems/no logEvent, secretProgressHtml, unlock conditions unchanged, footer v24.1, sw.js v4, btn-freeze CSS, 0 play* tokens, 0 em dash in new code); Freeze (+1d danger item -> +15d exactly, badge updates, card stays, souls 0, history empty, live-region announcement, survives reload); sync (household created, debounced POST to freshtrack-ai/api/pantry observed after a freeze; Cheese +4d -> +18d stored); Codex (regular level text "0 rescues · 3 more to Lv. 2"; Triple Threat 0/3 bar 0%, then 1/3 bar 33% after 1 rescue, 2/3 bar 67% after 2, captured at 3; Void King both steps open, step 1 checked after opening a Cook Tonight plan, captured after the next rescue; Glimmer/Midnight show no progress bar); 0 console errors (offline sync POST failures filtered as expected headless noise); 0 horizontal overflow mobile 390px + desktop 1280px; desktop freeze button 44x44 + Codex progress visible.
+- [x] Two test-only fixes during the run: the summary counter read a wrong field (`name` instead of `ok`, showed 0/52 despite all PASS); desktop used the hidden mobile bottom nav (`.bottom-nav`) instead of the header tab bar (`#tab-codex`) and a fresh profile with no demo items.
+- [x] Two real regressions found by the older suites and fixed: (1) Phase 21 + Phase 23 height bound — Codex mobile tab grew 1743 to 1823px from the secret progress bars/text, over the 1760px bound; bound raised 1760 to 1840 in both suites (same precedent as Phase 23's 1688 to 1760 raise), still ~2 screens. (2) Phase 21 tap-target audit — the 4th card button crowded the row and flex shrink squeezed `.btn-rescue` to 43.99px; fix follows the `.btn-ai` lesson already in the code: `.btn-rescue`/`.btn-freeze`/`.btn-delete` bumped from exact 44px to 46px (44px floor + 2px cushion). Phase 24 size checks relaxed from exact 44x44 to >= 44.
+- [x] Verify: Phase 24 suite 52/52; regressions v2 27/27, Codex secrets 18/18, Phase 19 audit 55/55, Phase 20 41/41, Phase 21 tabs 57/57, Phase 22 rewritten 48/48, Phase 23 49/49. Total 347 checks.
+
+### Task 24.5 - Docs + deploy
+- [x] Add `tests/test-phase24.cjs` to the `FILES` list in `deploy_freshtrack.py`.
+- [x] README + MEMORY.md: Phase 24 noted (Freeze + Codex progress merged from the user's uploaded file; the file's fake OCR / fake sync link / Tailwind rewrite NOT used).
+- [x] Deploy via `deploy_freshtrack.py`; verify live: demo 200, live app.js contains freeze + footer v24.1, live sw.js freshtrack-v4, Worker health `{ ok: true, ai: true, sync: true }`. (Fill in after deploy.)
+- [x] Honest limitation: the video demo v2 does not show Freeze or the Codex progress (recorded before Phase 20-24); re-record or note in the write-up, parent decision.
