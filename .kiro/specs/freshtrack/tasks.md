@@ -628,4 +628,12 @@ Probe (`/tmp/probe-music.cjs`, Playwright + `window.__freshTrack` hook) membukti
 - [x] Suite baru `tests/test-phase29-music.cjs` 16/16 (mix di source, start sesudah tap, gain live 0.25, toggle ♪ + class, toggle off/on ulang). Asersi mix lama di `tests/test-phase23.cjs` (2) dan `tests/test-phase25-music.cjs` (6) diperbarui ke nilai baru — test-only, perilaku app yang diubah memang disengaja. Asersi footer/cache diperbarui di test-phase20/23/24/25 + test-properties-browser.
 - [x] Regresi penuh 396/396 (380 lama + 16 baru).
 - [x] Deploy via deploy_freshtrack.py (file tes baru ditambah ke FILES); build Pages sempat macet (4 errored + 1 building) — diperbaiki dengan re-PUT app.js identik (commit 1921afb4f70d) seperti pola yang terbukti sebelumnya. Live terverifikasi via curl: demo 200, footer v27.2, sw.js freshtrack-v7, drone 220 Hz, health ok/ai/sync true.
-- [ ] Menunggu laporan uji HP user (checklist 9 item, termasuk musik terdengar + toggle berdenyut).
+
+### Music-box melody v27.3 (14 Nov ~09:15, user: "Musik horor lain dong" + "Masa suara drone" + "Kocak")
+
+User menertawakan drone-nya sendiri — hum bukan musik. Melodi kini memimpin, bukan drone: loop music-box menyeramkan A minor (440–880 Hz, jelas terdengar di speaker HP), satu nada tiap 550 mdtk, detune acak ±0,2% biar tidak bersih; drone turun jadi bed pelan (0,2/0,15/0,12); nada eerie tetap sebagai aksen. Timer melodi ikut dibersihkan di `stopMusic` (melodyTimer).
+
+- [x] Suite `tests/test-phase29-music.cjs` diperbarui ke mix v27.3 (18/18: MELODY + scheduler, bed drone pelan, nada melodi tercatat di log sesudah tap). Asersi footer/cache diperbarui di test-phase20/23/24/25 + test-properties-browser.
+- [x] Regresi penuh 398/398 (396 lama + 2 cek melodi baru). Run regresi sempat terpotong restart runtime di tengah test-phase23 — suite yang sudah lolos (v2, Codex, 19, 20, 21, 22) dipakai sebagai checkpoint, sisanya diulang penuh sesudah restart.
+- [x] Deploy via deploy_freshtrack.py; build Pages macet lagi (building 01:12:43Z tidak selesai ~4 mnt) — diperbaiki dengan re-PUT app.js identik (commit 6e6aacceb4). Live terverifikasi via curl: demo 200, footer v27.3, MELODY, sw.js freshtrack-v8, health ok/ai/sync true. Cache SW v7 -> v8; footer `FreshTrack v27.2 (audible music)` -> `FreshTrack v27.3 (music-box melody)`.
+- [ ] Menunggu laporan uji HP user (checklist 9 item, termasuk melodi terdengar + toggle berdenyut).
