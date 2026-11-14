@@ -834,7 +834,7 @@
   // Horror ambient loop, Web Audio only, no audio files. A low detuned
   // drone through a slow-breathing lowpass filter, a faint wind bed, and
   // a random eerie note every few seconds. Everything runs through one
-  // master gain (0.25) so the music stays audible on phone speakers.
+  // master gain (0.8 since v27.4) so the music is LOUD on phone speakers.
   var EERIE_NOTES = [220, 233.08, 261.63, 311.13, 329.63, 415.30];
 
   // One soft music note through the music master gain. opts: freq,
@@ -864,9 +864,9 @@
       if (!musicNodes || !musicEnabled) return;
       var ctx = musicNodes.ctx;
       var base = EERIE_NOTES[Math.floor(Math.random() * EERIE_NOTES.length)];
-      musicTone(ctx, { freq: base, dur: 1.8 + Math.random(), vol: 0.12 + Math.random() * 0.05 });
+      musicTone(ctx, { freq: base, dur: 1.8 + Math.random(), vol: 0.15 + Math.random() * 0.05 });
       if (Math.random() < 0.35) {
-        musicTone(ctx, { freq: base * 1.059, delay: 0.25, dur: 2.2, vol: 0.08 });
+        musicTone(ctx, { freq: base * 1.059, delay: 0.25, dur: 2.2, vol: 0.10 });
       }
       noteMusic('music-note');
       scheduleEerieNote();
@@ -888,8 +888,8 @@
       var base = MELODY[melodyIndex % MELODY.length];
       melodyIndex++;
       var detune = 1 + (Math.random() - 0.5) * 0.004;
-      musicTone(ctx, { freq: base * detune, dur: 1.6, vol: 0.16 });
-      musicTone(ctx, { freq: base * 2 * detune, dur: 1.0, vol: 0.05 });
+      musicTone(ctx, { freq: base * detune, dur: 1.6, vol: 0.30 });
+      musicTone(ctx, { freq: base * 2 * detune, dur: 1.0, vol: 0.10 });
       noteMusic('music-note');
       scheduleMelodyNote();
     }, MELODY_STEP_MS);
@@ -901,7 +901,7 @@
     ensureAudio().then(function (ctx) {
       if (!ctx || !musicEnabled || musicNodes) return;
       var master = ctx.createGain();
-      master.gain.value = 0.25;
+      master.gain.value = 0.8;
       master.connect(ctx.destination);
 
       var filter = ctx.createBiquadFilter();
@@ -922,9 +922,9 @@
       var drone3 = ctx.createOscillator();
       drone3.type = 'sine';
       drone3.frequency.value = 220;
-      var d1g = ctx.createGain(); d1g.gain.value = 0.2;
-      var d2g = ctx.createGain(); d2g.gain.value = 0.15;
-      var d3g = ctx.createGain(); d3g.gain.value = 0.12;
+      var d1g = ctx.createGain(); d1g.gain.value = 0.12;
+      var d2g = ctx.createGain(); d2g.gain.value = 0.10;
+      var d3g = ctx.createGain(); d3g.gain.value = 0.08;
       drone1.connect(d1g); d1g.connect(filter);
       drone2.connect(d2g); d2g.connect(filter);
       drone3.connect(d3g); d3g.connect(filter);
@@ -949,7 +949,7 @@
       band.frequency.value = 420;
       band.Q.value = 0.5;
       var windGain = ctx.createGain();
-      windGain.gain.value = 0.04;
+      windGain.gain.value = 0.05;
       wind.connect(band); band.connect(windGain); windGain.connect(master);
       var windLfo = ctx.createOscillator();
       windLfo.type = 'sine';
@@ -1598,7 +1598,7 @@
       '<footer class="footer">' +
         '<p>Kiroween 2026 \u2014 Costume Contest</p>' +
         '<p class="footer-flavor">Don\u2019t let the monsters win. \uD83C\uDF83</p>' +
-        '<p class="footer-version">FreshTrack v27.3 (music-box melody)</p>' +
+        '<p class="footer-version">FreshTrack v27.4 (loud + autoplay)</p>' +
       '</footer>';
   }
 
@@ -2801,6 +2801,15 @@
     // Global keyboard handling for modal (Escape + focus trap)
     document.addEventListener('keydown', handleModalKeydown);
 
+    // Autoplay attempt on load (v27.4): the music tries to start the
+    // moment the app opens, no toggle tap needed. Phone browsers block
+    // audible sound until the first touch, so when the context is still
+    // suspended this resume stays pending and the graph starts at the
+    // very first touch of any kind (a scroll counts); primeAudio below
+    // is the fallback for that case. Where the browser allows it, the
+    // music simply plays on load.
+    if (musicEnabled) startMusic();
+
     // Prime the audio engine on the first user gesture: browsers block
     // sound before any interaction, so the music starts here instead.
     var primedAudio = false;
@@ -2810,6 +2819,7 @@
       if (musicEnabled) startMusic();
     }
     document.addEventListener('pointerdown', primeAudio, { once: true });
+    document.addEventListener('touchstart', primeAudio, { once: true });
     document.addEventListener('keydown', primeAudio, { once: true });
 
     // Countdown refresh: check every minute for day change
