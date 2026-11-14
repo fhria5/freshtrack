@@ -11,6 +11,16 @@
 // — a hum is not music. The melody now leads: a creepy A-minor music-box
 // loop (440-880 Hz, clearly audible on phone speakers) with the drone bed
 // turned quiet underneath. Cache v7 -> v8.
+// v27.4: two more user reports — "full speaker tetap kecil suaranya"
+// (still quiet at max volume) and "sound gaperlu on in dlu, suara
+// otomatis muncul" (no toggle tap first, sound appears by itself).
+// Fix: master 0.8 + melody 0.30 (peak ~0.32, ~8x the v27.3 peak 0.04),
+// drone bed quieter still, and startMusic() is attempted on load —
+// where the browser allows it the music plays on load; where it blocks
+// audible sound before the first touch, the resume stays pending and the
+// graph starts at the very first touch of any kind (scroll counts).
+// Cache v8 -> v9. Headless runs with --autoplay-policy=no-user-gesture-
+// required, so the autoplay-on-load path is verifiable live here.
 // Run from the repo root:
 //   NODE_PATH=/home/hatch/workspace/shoppal-v2/node_modules node tests/test-phase29-music.cjs
 // Serves the repo on port 8908 itself and stops the server when done.
@@ -51,20 +61,24 @@ async function main() {
   const sw = fs.readFileSync(REPO + '/sw.js', 'utf-8');
 
   // Source-level mix checks (the actual fix).
-  check('music29: master gain 0.25', src.indexOf('master.gain.value = 0.25;') !== -1);
-  check('music29: 220 Hz drone harmonic present, bed quiet', src.indexOf('drone3.frequency.value = 220;') !== -1 &&
-    src.indexOf('d3g.gain.value = 0.12;') !== -1 &&
-    src.indexOf('d1g.gain.value = 0.2;') !== -1 &&
-    src.indexOf('d2g.gain.value = 0.15;') !== -1);
+  check('music29: master gain 0.8', src.indexOf('master.gain.value = 0.8;') !== -1);
+  check('music29: 220 Hz drone harmonic present, bed quieter', src.indexOf('drone3.frequency.value = 220;') !== -1 &&
+    src.indexOf('d3g.gain.value = 0.08;') !== -1 &&
+    src.indexOf('d1g.gain.value = 0.12;') !== -1 &&
+    src.indexOf('d2g.gain.value = 0.10;') !== -1);
+  check('music29: melody lead 0.30', src.indexOf('dur: 1.6, vol: 0.30') !== -1 &&
+    src.indexOf('dur: 1.0, vol: 0.10') !== -1);
+  check('music29: autoplay on load', src.indexOf('if (musicEnabled) startMusic();') !== -1 &&
+    src.indexOf("document.addEventListener('touchstart', primeAudio") !== -1);
   check('music29: music-box melody present', src.indexOf('var MELODY = [440, 523.25, 659.25, 880') !== -1 &&
     src.indexOf('function scheduleMelodyNote()') !== -1 &&
     src.indexOf('MELODY_STEP_MS = 550') !== -1);
-  check('music29: eerie notes 0.12 base', src.indexOf('vol: 0.12 + Math.random() * 0.05') !== -1);
-  check('music29: eerie harmony 0.08', src.indexOf('dur: 2.2, vol: 0.08') !== -1);
+  check('music29: eerie notes 0.15 base', src.indexOf('vol: 0.15 + Math.random() * 0.05') !== -1);
+  check('music29: eerie harmony 0.10', src.indexOf('dur: 2.2, vol: 0.10') !== -1);
   check('music29: eerie interval 3-6s', src.indexOf('3000 + Math.random() * 3000') !== -1);
-  check('music29: wind 0.04', src.indexOf('windGain.gain.value = 0.04;') !== -1);
-  check('music29: footer v27.3', src.indexOf('FreshTrack v27.3 (music-box melody)') !== -1);
-  check('music29: sw cache v8', sw.indexOf('freshtrack-v8') !== -1);
+  check('music29: wind 0.05', src.indexOf('windGain.gain.value = 0.05;') !== -1);
+  check('music29: footer v27.4', src.indexOf('FreshTrack v27.4 (loud + autoplay)') !== -1);
+  check('music29: sw cache v9', sw.indexOf('freshtrack-v9') !== -1);
   check('music29: pulse keyframes in css', css.indexOf('@keyframes musicPulse') !== -1 &&
     css.indexOf('.ctrl-music.music-playing') !== -1);
 
@@ -80,16 +94,17 @@ async function main() {
     await page.waitForTimeout(800);
 
     const before = await musicState(page);
-    check('music29: toggle On before tap, no pulse yet', before.on === true && before.started === false &&
-      before.toggleText.indexOf('Music: On') !== -1 && before.togglePlaying === false, before.toggleText);
-    check('music29: footer in page reads v27.3', before.version.indexOf('v27.3') !== -1, before.version.trim());
+    check('music29: music autoplays on load, no tap needed', before.on === true && before.started === true &&
+      before.state === 'running' && before.log.indexOf('music-start') !== -1 &&
+      before.toggleText.indexOf('\u266A') !== -1 && before.togglePlaying === true, JSON.stringify(before.log));
+    check('music29: footer in page reads v27.4', before.version.indexOf('v27.4') !== -1, before.version.trim());
 
     await page.mouse.click(195, 400);
     await page.waitForTimeout(2500);
     const after = await musicState(page);
-    check('music29: music starts after tap', after.started === true && after.state === 'running' &&
+    check('music29: music still playing after tap', after.started === true && after.state === 'running' &&
       after.log.indexOf('music-start') !== -1, JSON.stringify(after.log));
-    check('music29: live gain is 0.25', Math.abs(after.gain - 0.25) < 0.001, String(after.gain));
+    check('music29: live gain is 0.8', Math.abs(after.gain - 0.8) < 0.001, String(after.gain));
     check('music29: toggle shows pulsing note while playing', after.toggleText.indexOf('\u266A') !== -1 &&
       after.togglePlaying === true, after.toggleText);
     check('music29: melody notes play after tap', after.log.indexOf('music-note') !== -1, JSON.stringify(after.log));
