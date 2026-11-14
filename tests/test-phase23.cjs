@@ -6,7 +6,7 @@
 // Music: Web Audio only, no audio files. Low detuned drone (110Hz +
 // 110.5Hz, raised from 55Hz in Phase 25 so phone speakers can play it)
 // through a breathing lowpass filter, faint wind bed, random eerie notes
-// every few seconds, one master gain (0.15, raised from 0.05). Starts
+// every few seconds, one master gain (0.25 since Phase 29, raised from 0.15). Starts
 // after the first user gesture (autoplay policy), default ON, pauses
 // when the tab is hidden. Music toggle lives in the header, visible on
 // every tab. Audio cannot be heard in headless Chrome, so music is
@@ -70,7 +70,7 @@ async function main() {
     check('music: startMusic exists', src.indexOf('function startMusic(') !== -1);
     check('music: stopMusic exists', src.indexOf('function stopMusic(') !== -1);
     check('music: drone 110Hz present', src.indexOf('frequency.value = 110') !== -1);
-    check('music: master gain is 0.15', src.indexOf('master.gain.value = 0.15') !== -1);
+    check('music: master gain is 0.25', src.indexOf('master.gain.value = 0.25') !== -1);
     check('music: visibility suspend/resume wired', src.indexOf('visibilitychange') !== -1 && src.indexOf('ctx.suspend()') !== -1 && src.indexOf('ctx.resume()') !== -1);
     check('music: eerie notes scheduled', src.indexOf('scheduleEerieNote') !== -1 && src.indexOf('EERIE_NOTES') !== -1);
     for (const token of ['playTab(', 'playAdd(', 'playCreak(', 'playChime(', 'playSecret(', 'playTestSound(', 'toggle-sounds', 'test-sound']) {
@@ -104,7 +104,7 @@ async function main() {
     const started = await musicState(page);
     check('music: AudioContext running after gesture', started.state === 'running', started.state);
     check('music: started after gesture', started.started === true, JSON.stringify(started));
-    check('music: master gain is 0.15 (louder)', Math.abs(started.gain - 0.15) < 0.001, 'gain=' + started.gain);
+    check('music: master gain is 0.25 (louder)', Math.abs(started.gain - 0.25) < 0.001, 'gain=' + started.gain);
     check('music: music-start logged', started.log.indexOf('music-start') !== -1, started.log.join(','));
 
     // ===== Eerie notes arrive on their own schedule =====
@@ -181,7 +181,7 @@ async function main() {
 
     // ===== Footer version stamp =====
     const version = await page.evaluate(() => (document.querySelector('.footer-version') || {}).textContent || '');
-    check('version: footer reads v27.1', version.indexOf('v27.1') !== -1, version.trim());
+    check('version: footer reads v27.2', version.indexOf('v27.2') !== -1, version.trim());
 
     // ===== Desktop: toggle visible in the header on every tab =====
     const desk = await browser.newPage({ viewport: { width: 1280, height: 800 } });
