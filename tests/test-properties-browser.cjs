@@ -37,8 +37,8 @@ async function main() {
     page.on('pageerror', (err) => errors.push('pageerror: ' + err.message));
     await page.goto(BASE, { waitUntil: 'networkidle' });
     await page.waitForTimeout(300);
-    const footer = await page.evaluate(() => document.body.innerText.indexOf('FreshTrack v27.3') !== -1);
-    check('prop: app loads, footer v27.3 (browser smoke)', footer);
+    const footer = await page.evaluate(() => document.body.innerText.indexOf('FreshTrack v27.4') !== -1);
+    check('prop: app loads, footer v27.4 (browser smoke)', footer);
     check('prop: 0 non-network console errors on load', errors.length === 0, errors.join(' | '));
   } finally {
     await browser.close();
