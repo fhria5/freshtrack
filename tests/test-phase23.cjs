@@ -6,7 +6,7 @@
 // Music: Web Audio only, no audio files. Low detuned drone (110Hz +
 // 110.5Hz, raised from 55Hz in Phase 25 so phone speakers can play it)
 // through a breathing lowpass filter, faint wind bed, random eerie notes
-// every few seconds, one master gain (0.25 since Phase 29, raised from 0.15). Starts
+// every few seconds, one master gain (0.8 since v27.4, raised from 0.25). Starts
 // after the first user gesture (autoplay policy), default ON, pauses
 // when the tab is hidden. Music toggle lives in the header, visible on
 // every tab. Audio cannot be heard in headless Chrome, so music is
@@ -70,7 +70,7 @@ async function main() {
     check('music: startMusic exists', src.indexOf('function startMusic(') !== -1);
     check('music: stopMusic exists', src.indexOf('function stopMusic(') !== -1);
     check('music: drone 110Hz present', src.indexOf('frequency.value = 110') !== -1);
-    check('music: master gain is 0.25', src.indexOf('master.gain.value = 0.25') !== -1);
+    check('music: master gain is 0.8', src.indexOf('master.gain.value = 0.8') !== -1);
     check('music: visibility suspend/resume wired', src.indexOf('visibilitychange') !== -1 && src.indexOf('ctx.suspend()') !== -1 && src.indexOf('ctx.resume()') !== -1);
     check('music: eerie notes scheduled', src.indexOf('scheduleEerieNote') !== -1 && src.indexOf('EERIE_NOTES') !== -1);
     for (const token of ['playTab(', 'playAdd(', 'playCreak(', 'playChime(', 'playSecret(', 'playTestSound(', 'toggle-sounds', 'test-sound']) {
@@ -80,14 +80,14 @@ async function main() {
     await page.goto(BASE, { waitUntil: 'networkidle' });
     await page.waitForTimeout(300);
 
-    // ===== Music default ON on a fresh profile, not started yet =====
+    // ===== Music default ON on a fresh profile, autoplays on load (v27.4) =====
     const fresh = await musicState(page);
     const freshToggle = await toggleState(page);
     check('music: default ON (fresh profile)', fresh.on === true, 'musicOn=' + fresh.on);
     check('music: toggle label reads On', freshToggle && freshToggle.label.indexOf('On') !== -1, freshToggle && freshToggle.label);
     check('music: toggle aria-pressed true', freshToggle && freshToggle.pressed === 'true', freshToggle && freshToggle.pressed);
     check('music: no explicit off stored', await page.evaluate(() => localStorage.getItem('freshtrack.music')) !== 'false');
-    check('music: not started before any gesture', fresh.started === false && fresh.gain === 0, JSON.stringify(fresh));
+    check('music: autoplays on load, no gesture needed (v27.4)', fresh.started === true && Math.abs(fresh.gain - 0.8) < 0.001, JSON.stringify(fresh));
     check('music: header toggle visible on Pantry', freshToggle && freshToggle.visible === true && freshToggle.height >= 44, JSON.stringify(freshToggle));
 
     // ===== Toggle visible on every tab (mobile) =====
@@ -98,13 +98,13 @@ async function main() {
       check('music: toggle visible on ' + tab + ' tab (mobile)', ts && ts.visible === true && ts.height >= 44, JSON.stringify(ts));
     }
 
-    // ===== Music starts after the first gesture =====
+    // ===== Music keeps playing after a tap =====
     await page.click('.app-title');
     await page.waitForTimeout(900);
     const started = await musicState(page);
     check('music: AudioContext running after gesture', started.state === 'running', started.state);
     check('music: started after gesture', started.started === true, JSON.stringify(started));
-    check('music: master gain is 0.25 (louder)', Math.abs(started.gain - 0.25) < 0.001, 'gain=' + started.gain);
+    check('music: master gain is 0.8 (louder)', Math.abs(started.gain - 0.8) < 0.001, 'gain=' + started.gain);
     check('music: music-start logged', started.log.indexOf('music-start') !== -1, started.log.join(','));
 
     // ===== Eerie notes arrive on their own schedule =====
@@ -181,7 +181,7 @@ async function main() {
 
     // ===== Footer version stamp =====
     const version = await page.evaluate(() => (document.querySelector('.footer-version') || {}).textContent || '');
-    check('version: footer reads v27.3', version.indexOf('v27.3') !== -1, version.trim());
+    check('version: footer reads v27.4', version.indexOf('v27.4') !== -1, version.trim());
 
     // ===== Desktop: toggle visible in the header on every tab =====
     const desk = await browser.newPage({ viewport: { width: 1280, height: 800 } });
