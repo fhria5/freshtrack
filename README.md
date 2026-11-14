@@ -44,7 +44,7 @@ https://fhria5.github.io/freshtrack/
 - **Background Music** — horror ambient loop (Web Audio only: low drone + wind + eerie notes, on by default since Phase 23; Music toggle in the header, visible on every tab). Sound effects were removed in Phase 23 on user order.
 - **Freeze** — ❄️ Freeze button on every item card extends its expiry by 14 days (Phase 24); not a rescue, not waste, stats untouched, syncs to the household pantry like any other change.
 - **Codex progress** — secret monsters now show their progress on locked cards (Phase 24): Triple Threat "n / 3 rescued today" with a progress bar, Void King a 2-step checklist; unlock conditions unchanged.
-- **Louder music** — the horror background music is 3x louder and the drone sits at 110 Hz instead of 55 Hz, so phone speakers can actually play it (Phase 25); eerie notes and wind raised too.
+- **Louder music** — the horror background music is louder again and the drone gained a 220 Hz harmonic, the part phone speakers can actually play (Phase 29, after the user still heard nothing on the phone in Phase 25); eerie notes and wind raised too, and the header toggle now shows a pulsing note while the music runs.
 - **Share Card** — canvas-generated image with your rescue stats for
   #KiroweenHackathon26
 - **Haunted Household** - share one pantry with your whole household
@@ -108,7 +108,7 @@ exposes the same live Worker through four read-only tools
 `list_household_status`); registered in `.kiro/settings/mcp.json`
 and verified live with an SDK client.
 
-Tests: 380 Playwright checks (v2 + Codex + Phases 19–25) plus a
+Tests: 396 Playwright checks (v2 + Codex + Phases 19–25 + 29) plus a
 property suite of 12 checks over 1,511 seeded random cases: 10 pure
 checks in `tests/test-properties.cjs` (plain `node`, no Playwright —
 runs in the Kiro Web sandbox) and 2 browser smoke checks in
@@ -211,12 +211,17 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    together (347 checks). Phase 25 added a 21-check suite (louder
    music: master gain 0.15, drone 110/110.5 Hz, eerie notes and wind
    raised, old 55 Hz / 0.05 values gone, footer v25.1, cache v5) and
-   all nine suites pass together (368 checks). Phase 26 added a
+   all nine suites pass together (368 checks). Phase 29 added a
+   16-check music-fix suite (audible mix: master gain 0.25, 220 Hz
+   drone harmonic, eerie notes 0.12 every 3-6 s, wind 0.04, pulsing
+   note on the toggle while the graph runs; footer v27.2, cache v7)
+   and updated the old mix assertions in the Phase 23/25 suites
+   (test-only). Phase 26 added a
    12-check property suite (freeze +14 days over 250 random dates,
    urgency monotonicity over 250 offset pairs + 11 exact boundaries,
    recipe filter over 250 random picks, 500 household codes, Triple
    Threat cap over 250 random histories — 1,511 random cases) and all
-   ten suites pass together (380 checks).
+   eleven suites pass together (396 checks).
 
 The `.kiro` directory in this repo is the evidence of that workflow.
 
