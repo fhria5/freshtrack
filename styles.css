@@ -920,6 +920,18 @@ select option {
   color: var(--accent-fresh);
 }
 
+/* Pulsing note while the music graph is actually running. Lets the user
+   see the music started even before hearing it. Reduced-motion users get
+   the global animation kill below, so this stays still for them. */
+.ctrl-music.music-playing {
+  animation: musicPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes musicPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
 /* ===== Section Titles (shared) ===== */
 .section-title {
   font-size: 1.5rem;
