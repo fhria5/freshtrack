@@ -873,6 +873,28 @@
     }, 3000 + Math.random() * 3000);
   }
 
+  // Creepy music-box melody (A minor), the lead voice since v27.3.
+  // The drone bed stays quiet underneath; the melody is what the ear
+  // follows, one note every 550 ms, looping forever while music runs.
+  // Slight random detune keeps it uneasy instead of clean.
+  var MELODY = [440, 523.25, 659.25, 880, 783.99, 659.25, 523.25, 587.33, 659.25, 523.25, 440, 329.63];
+  var MELODY_STEP_MS = 550;
+  var melodyIndex = 0;
+  function scheduleMelodyNote() {
+    if (!musicNodes) return;
+    musicNodes.melodyTimer = setTimeout(function () {
+      if (!musicNodes || !musicEnabled) return;
+      var ctx = musicNodes.ctx;
+      var base = MELODY[melodyIndex % MELODY.length];
+      melodyIndex++;
+      var detune = 1 + (Math.random() - 0.5) * 0.004;
+      musicTone(ctx, { freq: base * detune, dur: 1.6, vol: 0.16 });
+      musicTone(ctx, { freq: base * 2 * detune, dur: 1.0, vol: 0.05 });
+      noteMusic('music-note');
+      scheduleMelodyNote();
+    }, MELODY_STEP_MS);
+  }
+
   // Builds the music graph once and starts the loop. Safe to call twice.
   function startMusic() {
     if (!musicEnabled || musicNodes) return;
@@ -900,9 +922,9 @@
       var drone3 = ctx.createOscillator();
       drone3.type = 'sine';
       drone3.frequency.value = 220;
-      var d1g = ctx.createGain(); d1g.gain.value = 0.5;
-      var d2g = ctx.createGain(); d2g.gain.value = 0.4;
-      var d3g = ctx.createGain(); d3g.gain.value = 0.3;
+      var d1g = ctx.createGain(); d1g.gain.value = 0.2;
+      var d2g = ctx.createGain(); d2g.gain.value = 0.15;
+      var d3g = ctx.createGain(); d3g.gain.value = 0.12;
       drone1.connect(d1g); d1g.connect(filter);
       drone2.connect(d2g); d2g.connect(filter);
       drone3.connect(d3g); d3g.connect(filter);
@@ -938,7 +960,7 @@
       windLfoGain.connect(windGain.gain);
 
       drone1.start(); drone2.start(); drone3.start(); lfo.start(); wind.start(); windLfo.start();
-      musicNodes = { ctx: ctx, master: master, timer: null,
+      musicNodes = { ctx: ctx, master: master, timer: null, melodyTimer: null,
         stoppables: [drone1, drone2, drone3, lfo, wind, windLfo] };
       noteMusic('music-start');
       // Show the listener the music is really running: the toggle gains
@@ -952,6 +974,7 @@
         musicBtn.classList.add('music-playing');
       }
       scheduleEerieNote();
+      scheduleMelodyNote();
     });
   }
 
@@ -959,6 +982,7 @@
   function stopMusic() {
     if (!musicNodes) return;
     clearTimeout(musicNodes.timer);
+    clearTimeout(musicNodes.melodyTimer);
     for (var i = 0; i < musicNodes.stoppables.length; i++) {
       try { musicNodes.stoppables[i].stop(); } catch (e) { /* already stopped */ }
     }
@@ -1574,7 +1598,7 @@
       '<footer class="footer">' +
         '<p>Kiroween 2026 \u2014 Costume Contest</p>' +
         '<p class="footer-flavor">Don\u2019t let the monsters win. \uD83C\uDF83</p>' +
-        '<p class="footer-version">FreshTrack v27.2 (audible music)</p>' +
+        '<p class="footer-version">FreshTrack v27.3 (music-box melody)</p>' +
       '</footer>';
   }
 
