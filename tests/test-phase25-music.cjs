@@ -58,8 +58,8 @@ async function main() {
     check('music25: wind gain 0.04', src.indexOf('windGain.gain.value = 0.04;') !== -1);
     check('music25: old 55Hz drone gone', src.indexOf('frequency.value = 55') === -1);
     check('music25: old 0.05 master gain gone', src.indexOf('master.gain.value = 0.05') === -1);
-    check('music25: footer reads v27.2', src.indexOf('FreshTrack v27.2 (audible music)') !== -1);
-    check('music25: sw cache is freshtrack-v7', fs.readFileSync(REPO + '/sw.js', 'utf-8').indexOf('freshtrack-v7') !== -1);
+    check('music25: footer reads v27.3', src.indexOf('FreshTrack v27.3 (music-box melody)') !== -1);
+    check('music25: sw cache is freshtrack-v8', fs.readFileSync(REPO + '/sw.js', 'utf-8').indexOf('freshtrack-v8') !== -1);
 
     await page.goto(BASE, { waitUntil: 'networkidle' });
     await page.waitForTimeout(300);
@@ -92,7 +92,7 @@ async function main() {
 
     // ===== Footer version visible in the page =====
     const version = await page.evaluate(() => (document.querySelector('.footer-version') || {}).textContent || '');
-    check('music25: footer in page reads v27.2', version.indexOf('v27.2') !== -1, version.trim());
+    check('music25: footer in page reads v27.3', version.indexOf('v27.3') !== -1, version.trim());
 
     check('music25: 0 console errors', errors.length === 0, errors.slice(0, 3).join(' ; '));
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
