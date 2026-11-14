@@ -7,6 +7,10 @@
 // eerie notes 0.12-0.17 every 3-6s, wind 0.04, plus a pulsing note on the
 // toggle while the graph runs, so "not started" reads apart from "on but
 // too quiet". SW cache bumped v6 -> v7 so a stale install cannot survive.
+// v27.3: the user laughed at the drone itself ("Masa suara drone", "Kocak")
+// — a hum is not music. The melody now leads: a creepy A-minor music-box
+// loop (440-880 Hz, clearly audible on phone speakers) with the drone bed
+// turned quiet underneath. Cache v7 -> v8.
 // Run from the repo root:
 //   NODE_PATH=/home/hatch/workspace/shoppal-v2/node_modules node tests/test-phase29-music.cjs
 // Serves the repo on port 8908 itself and stops the server when done.
@@ -48,14 +52,19 @@ async function main() {
 
   // Source-level mix checks (the actual fix).
   check('music29: master gain 0.25', src.indexOf('master.gain.value = 0.25;') !== -1);
-  check('music29: 220 Hz drone harmonic present', src.indexOf('drone3.frequency.value = 220;') !== -1 &&
-    src.indexOf('d3g.gain.value = 0.3;') !== -1);
+  check('music29: 220 Hz drone harmonic present, bed quiet', src.indexOf('drone3.frequency.value = 220;') !== -1 &&
+    src.indexOf('d3g.gain.value = 0.12;') !== -1 &&
+    src.indexOf('d1g.gain.value = 0.2;') !== -1 &&
+    src.indexOf('d2g.gain.value = 0.15;') !== -1);
+  check('music29: music-box melody present', src.indexOf('var MELODY = [440, 523.25, 659.25, 880') !== -1 &&
+    src.indexOf('function scheduleMelodyNote()') !== -1 &&
+    src.indexOf('MELODY_STEP_MS = 550') !== -1);
   check('music29: eerie notes 0.12 base', src.indexOf('vol: 0.12 + Math.random() * 0.05') !== -1);
   check('music29: eerie harmony 0.08', src.indexOf('dur: 2.2, vol: 0.08') !== -1);
   check('music29: eerie interval 3-6s', src.indexOf('3000 + Math.random() * 3000') !== -1);
   check('music29: wind 0.04', src.indexOf('windGain.gain.value = 0.04;') !== -1);
-  check('music29: footer v27.2', src.indexOf('FreshTrack v27.2 (audible music)') !== -1);
-  check('music29: sw cache v7', sw.indexOf('freshtrack-v7') !== -1);
+  check('music29: footer v27.3', src.indexOf('FreshTrack v27.3 (music-box melody)') !== -1);
+  check('music29: sw cache v8', sw.indexOf('freshtrack-v8') !== -1);
   check('music29: pulse keyframes in css', css.indexOf('@keyframes musicPulse') !== -1 &&
     css.indexOf('.ctrl-music.music-playing') !== -1);
 
@@ -73,7 +82,7 @@ async function main() {
     const before = await musicState(page);
     check('music29: toggle On before tap, no pulse yet', before.on === true && before.started === false &&
       before.toggleText.indexOf('Music: On') !== -1 && before.togglePlaying === false, before.toggleText);
-    check('music29: footer in page reads v27.2', before.version.indexOf('v27.2') !== -1, before.version.trim());
+    check('music29: footer in page reads v27.3', before.version.indexOf('v27.3') !== -1, before.version.trim());
 
     await page.mouse.click(195, 400);
     await page.waitForTimeout(2500);
@@ -83,6 +92,7 @@ async function main() {
     check('music29: live gain is 0.25', Math.abs(after.gain - 0.25) < 0.001, String(after.gain));
     check('music29: toggle shows pulsing note while playing', after.toggleText.indexOf('\u266A') !== -1 &&
       after.togglePlaying === true, after.toggleText);
+    check('music29: melody notes play after tap', after.log.indexOf('music-note') !== -1, JSON.stringify(after.log));
 
     // Toggle off: music stops, pulse clears; toggle back on: restarts.
     await page.click('[data-action="toggle-music"]');
