@@ -613,3 +613,19 @@ Source: user order "Solusi" (14 Nov ~07:35), answering the Phase 28 report's ope
 - [x] Total unchanged: 12/12 property checks (10 pure + 2 smoke); full regression still 380/380.
 - [x] `tests/test-properties-browser.cjs` added to FILES in deploy_freshtrack.py; README + freshtrack-qa.md updated.
 - [x] Verified in Kiro Web (read-only session https://app.kiro.dev/session/689d8fe5-2a5d-4de7-968c-ebae1deef08d, 14 Nov ~07:52, 0.24 bonus credits): `node tests/test-properties.cjs` on latest main (commit 997c137) passed 10/10, exit 0. The pure PBT suite is now a Kiro-executed verification, not just a repo artifact. MCP + QA agent still unexecuted by Kiro. (Session creation failed twice with 'Failed to create chat', succeeded after reload; no edits/commits/pushes.)
+
+## Phase 29 (in progress): Phone Test + Audible Music Fix - 14 Nov 2026
+
+Checklist 9 item uji HP dikirim ke user 14 Nov ~08:35 (perintah "Lanjut"); Phase 30 (video v4) tetap ditahan sampai user menyatakan sempurna.
+
+### Music fix v27.2 (14 Nov ~09:00, laporan user "Msh ga ada music" ke-3)
+
+Probe (`/tmp/probe-music.cjs`, Playwright + `window.__freshTrack` hook) membuktikan graph musik JALAN: sesudah tap, `musicStarted=true`, `gain=0.15`, log `music-start`; toggle "Music: On", footer v27.1. Jadi penyebabnya bukan start-nya, melainkan MIX: drone sine 110 Hz hampir tidak bisa direproduksi speaker HP, nada eerie ~0.05 dan angin 0.02 nyaris tak terdengar. Dua kali menaikkan volume saja (Phase 23, 25) tidak menyelesaikan fisik ini.
+
+- [x] Mix baru: master gain 0.15 -> 0.25; drone ketiga sine 220 Hz (gain 0.3, satu oktaf di atas drone 110 Hz — inilah yang telinga dengar di speaker HP); nada eerie 0.05 -> 0.12 (+acak 0.05), harmoni 0.04 -> 0.08, interval 4-9 dtk -> 3-6 dtk; angin 0.02 -> 0.04.
+- [x] Indikator jalan: toggle header menampilkan "Music: On ♪" berdenyut (class `music-playing`, keyframes `musicPulse`) selama graph berjalan, jadi "belum start" bisa dibedakan dari "jalan tapi tak terdengar". Update langsung via DOM di `startMusic`/`stopMusic` (bukan `render()` penuh — tap pertama bisa mendarat di dalam form tambah item, re-render akan mencuri fokus). `renderHeader()` ikut memakai label + class yang sama. `prefers-reduced-motion` sudah dimatikan animasi oleh aturan global yang ada.
+- [x] Cache + footer: `sw.js` CACHE_NAME `freshtrack-v6` -> `freshtrack-v7`; footer `FreshTrack v27.1 (collapsible form)` -> `FreshTrack v27.2 (audible music)`.
+- [x] Suite baru `tests/test-phase29-music.cjs` 16/16 (mix di source, start sesudah tap, gain live 0.25, toggle ♪ + class, toggle off/on ulang). Asersi mix lama di `tests/test-phase23.cjs` (2) dan `tests/test-phase25-music.cjs` (6) diperbarui ke nilai baru — test-only, perilaku app yang diubah memang disengaja. Asersi footer/cache diperbarui di test-phase20/23/24/25 + test-properties-browser.
+- [x] Regresi penuh 396/396 (380 lama + 16 baru).
+- [x] Deploy via deploy_freshtrack.py (file tes baru ditambah ke FILES); build Pages sempat macet (4 errored + 1 building) — diperbaiki dengan re-PUT app.js identik (commit 1921afb4f70d) seperti pola yang terbukti sebelumnya. Live terverifikasi via curl: demo 200, footer v27.2, sw.js freshtrack-v7, drone 220 Hz, health ok/ai/sync true.
+- [ ] Menunggu laporan uji HP user (checklist 9 item, termasuk musik terdengar + toggle berdenyut).
