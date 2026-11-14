@@ -108,7 +108,7 @@ exposes the same live Worker through four read-only tools
 `list_household_status`); registered in `.kiro/settings/mcp.json`
 and verified live with an SDK client.
 
-Tests: 396 Playwright checks (v2 + Codex + Phases 19–25 + 29) plus a
+Tests: 398 Playwright checks (v2 + Codex + Phases 19–25 + 29) plus a
 property suite of 12 checks over 1,511 seeded random cases: 10 pure
 checks in `tests/test-properties.cjs` (plain `node`, no Playwright —
 runs in the Kiro Web sandbox) and 2 browser smoke checks in
@@ -216,12 +216,15 @@ FreshTrack was built end-to-end with **Kiro CLI** using spec-driven development:
    drone harmonic, eerie notes 0.12 every 3-6 s, wind 0.04, pulsing
    note on the toggle while the graph runs; footer v27.2, cache v7)
    and updated the old mix assertions in the Phase 23/25 suites
-   (test-only). Phase 26 added a
+   (test-only). v27.3 (14 Nov) replaced the drone-led mix with a creepy
+   A-minor music-box melody loop (440-880 Hz) as the lead voice and the
+   drone turned down to a quiet bed (footer v27.3, cache v8); the suite
+   grew to 18 checks. Phase 26 added a
    12-check property suite (freeze +14 days over 250 random dates,
    urgency monotonicity over 250 offset pairs + 11 exact boundaries,
    recipe filter over 250 random picks, 500 household codes, Triple
    Threat cap over 250 random histories — 1,511 random cases) and all
-   eleven suites pass together (396 checks).
+   eleven suites pass together (398 checks).
 
 The `.kiro` directory in this repo is the evidence of that workflow.
 
