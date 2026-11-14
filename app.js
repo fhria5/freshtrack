@@ -834,7 +834,7 @@
   // Horror ambient loop, Web Audio only, no audio files. A low detuned
   // drone through a slow-breathing lowpass filter, a faint wind bed, and
   // a random eerie note every few seconds. Everything runs through one
-  // master gain (0.15) so the music stays audible on phone speakers.
+  // master gain (0.25) so the music stays audible on phone speakers.
   var EERIE_NOTES = [220, 233.08, 261.63, 311.13, 329.63, 415.30];
 
   // One soft music note through the music master gain. opts: freq,
@@ -864,13 +864,13 @@
       if (!musicNodes || !musicEnabled) return;
       var ctx = musicNodes.ctx;
       var base = EERIE_NOTES[Math.floor(Math.random() * EERIE_NOTES.length)];
-      musicTone(ctx, { freq: base, dur: 1.8 + Math.random(), vol: 0.05 + Math.random() * 0.02 });
+      musicTone(ctx, { freq: base, dur: 1.8 + Math.random(), vol: 0.12 + Math.random() * 0.05 });
       if (Math.random() < 0.35) {
-        musicTone(ctx, { freq: base * 1.059, delay: 0.25, dur: 2.2, vol: 0.04 });
+        musicTone(ctx, { freq: base * 1.059, delay: 0.25, dur: 2.2, vol: 0.08 });
       }
       noteMusic('music-note');
       scheduleEerieNote();
-    }, 4000 + Math.random() * 5000);
+    }, 3000 + Math.random() * 3000);
   }
 
   // Builds the music graph once and starts the loop. Safe to call twice.
@@ -879,7 +879,7 @@
     ensureAudio().then(function (ctx) {
       if (!ctx || !musicEnabled || musicNodes) return;
       var master = ctx.createGain();
-      master.gain.value = 0.15;
+      master.gain.value = 0.25;
       master.connect(ctx.destination);
 
       var filter = ctx.createBiquadFilter();
@@ -894,10 +894,18 @@
       var drone2 = ctx.createOscillator();
       drone2.type = 'triangle';
       drone2.frequency.value = 110.5;
+      // Third drone one octave up (220 Hz): phone speakers barely
+      // reproduce 110 Hz, so the low drone alone is near-silent on a
+      // phone. The 220 Hz harmonic is what the ear actually hears.
+      var drone3 = ctx.createOscillator();
+      drone3.type = 'sine';
+      drone3.frequency.value = 220;
       var d1g = ctx.createGain(); d1g.gain.value = 0.5;
       var d2g = ctx.createGain(); d2g.gain.value = 0.4;
+      var d3g = ctx.createGain(); d3g.gain.value = 0.3;
       drone1.connect(d1g); d1g.connect(filter);
       drone2.connect(d2g); d2g.connect(filter);
+      drone3.connect(d3g); d3g.connect(filter);
 
       var lfo = ctx.createOscillator();
       lfo.type = 'sine';
@@ -919,7 +927,7 @@
       band.frequency.value = 420;
       band.Q.value = 0.5;
       var windGain = ctx.createGain();
-      windGain.gain.value = 0.02;
+      windGain.gain.value = 0.04;
       wind.connect(band); band.connect(windGain); windGain.connect(master);
       var windLfo = ctx.createOscillator();
       windLfo.type = 'sine';
@@ -929,10 +937,20 @@
       windLfo.connect(windLfoGain);
       windLfoGain.connect(windGain.gain);
 
-      drone1.start(); drone2.start(); lfo.start(); wind.start(); windLfo.start();
+      drone1.start(); drone2.start(); drone3.start(); lfo.start(); wind.start(); windLfo.start();
       musicNodes = { ctx: ctx, master: master, timer: null,
-        stoppables: [drone1, drone2, lfo, wind, windLfo] };
+        stoppables: [drone1, drone2, drone3, lfo, wind, windLfo] };
       noteMusic('music-start');
+      // Show the listener the music is really running: the toggle gains
+      // a pulsing note, so "not started" can be told apart from "on but
+      // too quiet to hear". Full render() is avoided here on purpose:
+      // the first tap can land inside the add-item form, and a re-render
+      // would steal its focus.
+      var musicBtn = document.querySelector('[data-action="toggle-music"]');
+      if (musicBtn) {
+        musicBtn.textContent = '\uD83C\uDFB5 Music: On \u266A';
+        musicBtn.classList.add('music-playing');
+      }
       scheduleEerieNote();
     });
   }
@@ -947,6 +965,11 @@
     try { musicNodes.master.disconnect(); } catch (e) { /* already gone */ }
     musicNodes = null;
     noteMusic('music-stop');
+    var musicBtnOff = document.querySelector('[data-action="toggle-music"]');
+    if (musicBtnOff) {
+      musicBtnOff.classList.remove('music-playing');
+      if (musicEnabled) musicBtnOff.textContent = '\uD83C\uDFB5 Music: On';
+    }
   }
 
   // Flips the music preference and starts or stops the loop.
@@ -1092,13 +1115,13 @@
   }
 
   function renderHeader() {
-    var musicLabel = musicEnabled ? '\uD83C\uDFB5 Music: On' : '\uD83C\uDFB5 Music: Off';
+    var musicLabel = musicEnabled ? (musicNodes ? '\uD83C\uDFB5 Music: On \u266A' : '\uD83C\uDFB5 Music: On') : '\uD83C\uDFB5 Music: Off';
     return '' +
       '<header class="header">' +
         '<h1 class="app-title">FreshTrack</h1>' +
         '<p class="subtitle">Save them before they rot.</p>' +
         '<div class="audio-bar">' +
-          '<button type="button" class="ctrl-btn audio-btn ctrl-music" data-action="toggle-music" aria-pressed="' + musicEnabled + '">' +
+          '<button type="button" class="ctrl-btn audio-btn ctrl-music' + (musicNodes ? ' music-playing' : '') + '" data-action="toggle-music" aria-pressed="' + musicEnabled + '">' +
             musicLabel +
           '</button>' +
         '</div>' +
@@ -1551,7 +1574,7 @@
       '<footer class="footer">' +
         '<p>Kiroween 2026 \u2014 Costume Contest</p>' +
         '<p class="footer-flavor">Don\u2019t let the monsters win. \uD83C\uDF83</p>' +
-        '<p class="footer-version">FreshTrack v27.1 (collapsible form)</p>' +
+        '<p class="footer-version">FreshTrack v27.2 (audible music)</p>' +
       '</footer>';
   }
 
