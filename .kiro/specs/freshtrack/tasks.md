@@ -612,3 +612,4 @@ Source: user order "Solusi" (14 Nov ~07:35), answering the Phase 28 report's ope
 - [x] New `tests/test-properties-browser.cjs`: the 2 browser smoke checks only (app loads footer v27.1, 0 non-network console errors, port 8906 pattern). Still needs Playwright + NODE_PATH. 2/2 locally.
 - [x] Total unchanged: 12/12 property checks (10 pure + 2 smoke); full regression still 380/380.
 - [x] `tests/test-properties-browser.cjs` added to FILES in deploy_freshtrack.py; README + freshtrack-qa.md updated.
+- [x] Verified in Kiro Web (read-only session https://app.kiro.dev/session/689d8fe5-2a5d-4de7-968c-ebae1deef08d, 14 Nov ~07:52, 0.24 bonus credits): `node tests/test-properties.cjs` on latest main (commit 997c137) passed 10/10, exit 0. The pure PBT suite is now a Kiro-executed verification, not just a repo artifact. MCP + QA agent still unexecuted by Kiro. (Session creation failed twice with 'Failed to create chat', succeeded after reload; no edits/commits/pushes.)
